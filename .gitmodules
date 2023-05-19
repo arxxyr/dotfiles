@@ -1,0 +1,9 @@
+[submodule ".config/nvim"]
+	path = .config/nvim
+	url = https://github.com/arxxyr/nvim_config.git
+[submodule ".config/neofetch/custom"]
+	path = .config/neofetch/custom
+	url = https://github.com/arxxyr/ascii-art-neofetch.git
+[submodule ".config/awesome"]
+	path = .config/awesome
+	url = https://github.com/arxxyr/awesomewm-config.git

@@ -1,0 +1,94 @@
+# 自动刷新
+live_config_reload: true
+# Tab 缩进
+tabspaces: 4
+# 背景透明度
+window.opacity: 0.9
+
+shell:
+  program: /bin/zsh
+  # windows
+  # program: c:\windows\system32\windowspowershell\v1.0\powershell.exe
+  args:
+    # login
+    - -l
+
+window:
+  # 窗口大小
+  dimensions:
+    columns: 120
+    lines: 30
+
+  # 边缘空白
+  padding:
+    x: 10
+    y: 15
+  #dynamic_padding: false
+  #startup_mode: Maximized
+  # 窗口修饰
+  # - full: 有边界+标题栏
+  # - none: 无边界+标题栏
+  decorations: full
+
+scrolling:
+  # 历史保留行数
+  history: 2000
+
+  # 每次滚动行数
+  multiplier: 20
+
+  # 每次滚动行数（分屏时）
+  faux_multiplier: 100
+
+  # 自动滚动至最新行
+  auto_scroll: true
+
+font:
+  size: 13
+  # 字体
+  normal:
+    family: 'Noto Sans Mono'
+    style: Regular
+  bold:
+    family: 'Noto Sans Mono'
+    style: Bold
+  italic:
+    family: 'Noto Sans Mono'
+    style: Italic
+  bold_italic:
+    family: 'Noto Sans Mono'
+    style: Bold Italic
+
+  # 细描边
+  # use_thin_strokes: true
+
+
+# Colors (Ayu Dark)
+colors:
+  # Default colors
+  primary:
+    background: '#0A0E14'
+    foreground: '#B3B1AD'
+
+  # Normal colors
+  normal:
+    black: '#01060E'
+    red: '#EA6C73'
+    green: '#91B362'
+    yellow: '#F9AF4F'
+    blue: '#53BDFA'
+    magenta: '#FAE994'
+    cyan: '#90E1C6'
+    white: '#C7C7C7'
+
+  # Bright colors
+  bright:
+    black: '#686868'
+    red: '#F07178'
+    green: '#C2D94C'
+    yellow: '#FFB454'
+    blue: '#59C2FF'
+    magenta: '#FFEE99'
+    cyan: '#95E6CB'
+    white: '#FFFFFF'
+
