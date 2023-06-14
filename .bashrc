@@ -5,7 +5,6 @@
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
-alias ls='ls --color=auto'
 PS1='[\u@\h \W]\$ '
 alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 . "$HOME/.cargo/env"
@@ -18,12 +17,18 @@ alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
+alias vi='nvim'
+alias vim='nvim'
+alias ll='ls -ll --color=auto'
 alias ls='ls --color=auto'
 alias ip='ip -color=auto'
 alias grep='grep --color=auto'
 alias diff='diff --color=auto'
 alias lg='lazygit'
 alias ra='ranger'
+alias pyq='proxychains -q'
+alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
+alias lg_cfg='lazygit --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
 export MANPAGER="less -R --use-color -Dd+r -Du+b"
 export LESS='-R --use-color -Dd+r$Du+b'
