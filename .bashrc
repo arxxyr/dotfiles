@@ -87,6 +87,8 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 source /opt/ros/humble/setup.bash
+# burger waffle waffle_pi
+export TURTLEBOT3_MODEL=waffle
 
 # >>> xmake >>>
 [[ -s "$HOME/.xmake/profile" ]] && source "$HOME/.xmake/profile" # load xmake profile
