@@ -15,8 +15,6 @@ alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 # For a full list of active aliases, run `alias`.
 #
 # Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
 alias vi='nvim'
 alias vim='nvim'
 alias ll='ls -ll --color=auto'
@@ -86,7 +84,7 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-source /opt/ros/humble/setup.bash
+# source /opt/ros/humble/setup.bash
 # burger waffle waffle_pi
 export TURTLEBOT3_MODEL=waffle
 
