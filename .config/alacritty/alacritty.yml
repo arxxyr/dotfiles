@@ -6,7 +6,7 @@ tabspaces: 4
 window.opacity: 0.9
 
 shell:
-  program: /bin/zsh
+  program: /bin/bash
   # windows
   # program: c:\windows\system32\windowspowershell\v1.0\powershell.exe
   args:
