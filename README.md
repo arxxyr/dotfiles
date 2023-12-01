@@ -101,6 +101,26 @@ cargo install stylua
 
 ## good bash
 
+
+
+To remove CUDA Toolkit:
+```
+sudo apt-get --purge remove "*cuda*" "*cublas*" "*cufft*" "*cufile*" "*curand*" \
+ "*cusolver*" "*cusparse*" "*gds-tools*" "*npp*" "*nvjpeg*" "nsight*" "*nvvm*"
+```
+To remove NVIDIA Drivers:
+```
+sudo apt-get --purge remove "*nvidia*" "libxnvctrl*"
+```
+To clean up the uninstall:
+```
+sudo apt-get autoremove
+```
+
+
+
+
+
 ```
 sudo apt remove --purge '^nvidia-.*'
 sudo apt remove --purge '^libnvidia-.*'
