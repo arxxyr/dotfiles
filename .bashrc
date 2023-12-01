@@ -154,10 +154,10 @@ export PATH=$PATH:$HOME/.cargo/bin
 # [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 # virtualenv and virtualenvwrapper
-export WORKON_HOME=$HOME/.local/bin/.virtualenvs
-export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
-export VIRTUALENVWRAPPER_VIRTUALENV=$HOME/.local/bin/virtualenv
-source $HOME/.local/bin/virtualenvwrapper.sh
+# export WORKON_HOME=$HOME/.local/bin/.virtualenvs
+# export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
+# export VIRTUALENVWRAPPER_VIRTUALENV=$HOME/.local/bin/virtualenv
+# source $HOME/.local/bin/virtualenvwrapper.sh
 
 # goproxy
 export GOPROXY=https://proxy.golang.com.cn,direct
