@@ -207,4 +207,4 @@ export TURTLEBOT3_MODEL=waffle
 # <<< xmake <<<
 
 
-
+export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
