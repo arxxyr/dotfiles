@@ -65,8 +65,13 @@ config submodule update
 ```
 config config --local status.showUntrackedFiles no
 ```
+激活环境
 ```
-source ~/.zshrc
+source "$HOME/.zshrc"
+```
+或者
+```
+source "$HOME/.bashrc"
 ```
 配置pip
 ```
@@ -99,7 +104,7 @@ rust
 cargo install stylua
 ```
 
-## good bash
+## Good bash
 
 
 
@@ -114,18 +119,16 @@ sudo apt-get --purge remove "*nvidia*" "libxnvctrl*"
 ```
 To clean up the uninstall:
 ```
-sudo apt-get autoremove
+sudo apt-get autoremove -y
 ```
-
-
-
-
 
 ```
 sudo apt remove --purge '^nvidia-.*'
 sudo apt remove --purge '^libnvidia-.*'
 sudo apt remove --purge '^cuda-.*'
 sudo apt install linux-headers-$(uname -r)
+
+git config --global credential.helper store
 
 git config --global https.proxy http://127.0.0.1:1080
 git config --global https.proxy https://127.0.0.1:1080
