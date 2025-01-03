@@ -109,7 +109,7 @@ source $ZSH/oh-my-zsh.sh
 #
 #
 
-#config
+# config
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
@@ -120,14 +120,7 @@ alias ls='ls --color=auto'
 alias ip='ip -color=auto'
 alias grep='grep --color=auto'
 alias diff='diff --color=auto'
-alias lg='lazygit'
-alias ra='ranger'
-alias pyq='proxychains -q'
 alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
-alias lg_cfg='lazygit --git-dir=$HOME/.cfg/ --work-tree=$HOME'
-
-export MANPAGER="less -R --use-color -Dd+r -Du+b"
-export LESS='-R --use-color -Dd+r$Du+b'
 
 autoload -U compinit && compinit
 
@@ -136,12 +129,6 @@ export PATH=$PATH:$HOME/.cargo/bin
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-# virtualenv and virtualenvwrapper
-export WORKON_HOME=$HOME/.local/bin/.virtualenvs
-export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
-export VIRTUALENVWRAPPER_VIRTUALENV=$HOME/.local/bin/virtualenv
-source $HOME/.local/bin/virtualenvwrapper.sh
 
 # goproxy
 export GOPROXY=https://proxy.golang.com.cn,direct
@@ -187,3 +174,11 @@ source /opt/ros/humble/setup.zsh
 # >>> xmake >>>
 [[ -s "$HOME/.xmake/profile" ]] && source "$HOME/.xmake/profile" # load xmake profile
 # <<< xmake <<<
+
+# cuda
+export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
+
+# zoxide
+export PATH="$HOME/.local/bin:$PATH"
+eval "$(zoxide init bash)"
+
