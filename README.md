@@ -58,8 +58,7 @@ checkout 云端的配置文件到你的 $HOME 目录下：
 
 ```
 config checkout
-config submodule init
-config submodule update
+config submodule update --init --recursive
 ```
 把 status.showUntrackedFiles 关闭：
 ```
@@ -130,8 +129,8 @@ sudo apt install linux-headers-$(uname -r)
 
 git config --global credential.helper store
 
+git config --global http.proxy http://127.0.0.1:1080
 git config --global https.proxy http://127.0.0.1:1080
-git config --global https.proxy https://127.0.0.1:1080
 git config --global --unset http.proxy
 git config --global --unset https.proxy
 ```
