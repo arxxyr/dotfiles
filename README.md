@@ -105,7 +105,13 @@ cargo install stylua
 
 ## Good bash
 
-
+To chmod .ssh
+```
+chmod 0700 ~/.ssh
+chmod 0644 ~/.ssh/authorized_keys 
+chmod 0644 ~/.ssh/id_ed25519.pub 
+chmod 0600 ~/.ssh/id_ed25519
+```
 
 To remove CUDA Toolkit:
 ```
