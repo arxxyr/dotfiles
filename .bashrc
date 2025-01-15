@@ -157,3 +157,5 @@ alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 # export ROSDISTRO_INDEX_URL=https://mirrors.ustc.edu.cn/rosdistro/index-v4.yaml
 # source ~/ws_moveit/install/setup.bash
 source ~/ws_moveit2/install/setup.bash
+# rviz2
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
