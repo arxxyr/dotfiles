@@ -20,7 +20,6 @@ ZSH_THEME="robbyrussell"
 #ZSH_THEME="powerlevel10k/powerlevel10k"
 #ZSH_THEME="eastwood"
 
-
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
 # a theme from this variable instead of looking in $ZSH/themes/
@@ -169,8 +168,6 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-source /opt/ros/humble/setup.zsh
-
 # >>> xmake >>>
 [[ -s "$HOME/.xmake/profile" ]] && source "$HOME/.xmake/profile" # load xmake profile
 # <<< xmake <<<
@@ -181,4 +178,12 @@ export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
 # zoxide
 export PATH="$HOME/.local/bin:$PATH"
 eval "$(zoxide init bash)"
+
+#ros2
+source /opt/ros/humble/setup.zsh
+
+# source ~/ws_moveit/install/setup.bash
+source ~/ws_moveit2/install/setup.zsh
+# rviz2
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
 
