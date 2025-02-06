@@ -80,7 +80,7 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git sudo z kubectl history emoji encode64 web-search copypath copyfile copybuffer dirhistory jsontools zsh-syntax-highlighting zsh-autosuggestions zsh-completions)
+plugins=(git sudo kubectl history emoji encode64 web-search copypath copyfile copybuffer dirhistory jsontools zsh-syntax-highlighting zsh-autosuggestions zsh-completions)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -177,7 +177,7 @@ export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
 
 # zoxide
 export PATH="$HOME/.local/bin:$PATH"
-eval "$(zoxide init bash)"
+eval "$(zoxide init zsh)"
 
 #ros2
 source /opt/ros/humble/setup.zsh
