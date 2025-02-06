@@ -122,6 +122,7 @@ alias diff='diff --color=auto'
 alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
 autoload -U compinit && compinit
+# autoload -U bashcompinit && bashcompinit
 
 # rust
 export PATH=$PATH:$HOME/.cargo/bin
@@ -187,3 +188,4 @@ source ~/ws_moveit2/install/setup.zsh
 # rviz2
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 
+# source ~/.oh-my-zsh/plugins/incr/incr*.zsh
