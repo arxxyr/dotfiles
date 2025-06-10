@@ -189,3 +189,6 @@ source ~/ws_moveit2/install/setup.zsh
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 
 # source ~/.oh-my-zsh/plugins/incr/incr*.zsh
+
+export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
+export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
