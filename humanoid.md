@@ -21,3 +21,21 @@ fi
 
 pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu124
 pip install numpy==1.23
+
+
+## useage
+
+train
+``` bash
+python scripts/train.py --task=humanoid_ppo --run_name v1 --headless --num_envs 4096
+```
+
+evaluating
+``` bash
+python scripts/play.py --task=humanoid_ppo --load_run Feb10_11-25-07_v1  --run_name v1
+```
+
+run
+``` bash
+ython scripts/sim2sim.py --load_model /path/to/logs/XBot_ppo/exported/policies/policy_1.pt
+```
