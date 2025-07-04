@@ -184,8 +184,22 @@ eval "$(zoxide init zsh)"
 source /opt/ros/humble/setup.zsh
 
 # source ~/ws_moveit/install/setup.bash
-source ~/ws_moveit2/install/setup.zsh
+# source ~/ws_moveit2/install/setup.zsh
 # rviz2
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 
 # source ~/.oh-my-zsh/plugins/incr/incr*.zsh
+#
+#
+
+
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export CYCLONEDDS_URI=file://$HOME/.ros/cyclonedds/cyclonedds.xml
+
+cursor() {
+    nohup env all_proxy="socks5://127.0.0.1:10808" \
+        ~/Cursor-0.47.9-x86_64.AppImage \
+        >/dev/null 2>&1 &
+    disown
+}
+
