@@ -196,7 +196,7 @@ export CYCLONEDDS_URI=file://$HOME/.ros/cyclonedds/cyclonedds.xml
 
 cursor() {
     nohup env all_proxy="socks5://127.0.0.1:10808" \
-        ~/Cursor-0.47.9-x86_64.AppImage \
+        ~/Cursor-x86_64.AppImage \
         >/dev/null 2>&1 &
     disown
 }
