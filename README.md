@@ -103,6 +103,11 @@ rust
 cargo install stylua
 ```
 
+uv
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 ## Good bash
 
 To chmod .ssh
