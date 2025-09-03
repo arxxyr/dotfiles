@@ -191,8 +191,8 @@ export QT_AUTO_SCREEN_SCALE_FACTOR=0
 #
 #
 
-export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export CYCLONEDDS_URI=file://$HOME/.ros/cyclonedds/cyclonedds.xml
+# export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+# export CYCLONEDDS_URI=file://$HOME/.ros/cyclonedds/cyclonedds.xml
 
 cursor() {
     nohup env all_proxy="socks5://127.0.0.1:10808" \
