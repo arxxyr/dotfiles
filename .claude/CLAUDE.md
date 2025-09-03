@@ -61,8 +61,15 @@ project/
 
 ## 6. Git 与提交
 - **分支**：`master` 保护；特性分支 `feat/*`、修复 `fix/*`。
-- **提交规范**：Conventional Commits（`feat/fix/refactor/docs/test/build/chore`）。
+- **提交规范**：Conventional Commits（`feat/fix/refactor/docs/test/build/chore/style/perf/build/ci/revert`）。
 - **评审**：小步提交；PR 必需通过构建与静态检查；描述明确动机与影响面。
+- **标签**：`vX.Y.Z`；遵循语义化版本。
+- **署名**：生成commit的时候不要加最后的 
+    ``` 🤖 Generated with [Claude Code](https://claude.ai/code)
+
+    Co-Authored-By: Claude <noreply@anthropic.com>
+    
+    ```
 
 ---
 
