@@ -66,7 +66,7 @@ project/
 - **标签**：`vX.Y.Z`；遵循语义化版本。
 - **署名**：生成commit的时候不要加最后的 
     ``` 🤖 Generated with [Claude Code](https://claude.ai/code)
-
+    
     Co-Authored-By: Claude <noreply@anthropic.com>
     
     ```
@@ -84,6 +84,7 @@ project/
   * 依赖策略：所有 crate **默认使用 crates.io 最新稳定版**，除非被锁定以保证兼容性或 reproducibility。
   * 工程脚手架可用 `cargo new` / `cargo generate`，CI 中启用 `cargo clippy` + `cargo fmt`。
   * 构建标志：`RUSTFLAGS="-C target-cpu=native -C link-arg=-fuse-ld=lld"`（Release 模式下）。
+  * 内存管理：使用```mimalloc```
   * 测试：`cargo test --all --release`；基准测试启用 `criterion`。
 
 ---
@@ -160,4 +161,10 @@ $Shell = "powershell"
 
 ---
 
-> 注：此文件为个人偏好基线。新项目可按需裁剪/调整，但请先与我确认差异点。
+> 注：此文件为个人偏好基线。新项目可按需裁剪/调整，但请先与我确认差异点。有疑问多问我。
+> 署名：生成commit的时候不要加最后的 
+    ``` 🤖 Generated with [Claude Code](https://claude.ai/code)
+
+    Co-Authored-By: Claude <noreply@anthropic.com>
+    ```
+
