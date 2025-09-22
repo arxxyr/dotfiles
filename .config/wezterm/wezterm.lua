@@ -12,7 +12,7 @@ config.font = wezterm.font("JetBrainsMono NF")
 config.font_size = 12.0 -- 设置字体大小
 
 -- Set default window size (columns and rows)
-config.initial_cols = 140 -- 设置初始列数
+config.initial_cols = 150 -- 设置初始列数
 config.initial_rows = 30 -- 设置初始行数
 
 config.enable_wayland = false
