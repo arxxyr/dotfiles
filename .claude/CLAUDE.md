@@ -104,13 +104,69 @@ project/
 
 ---
 
-## 10. 文档与可视化
+## 10. 常见陷阱与最佳实践
+
+### 10.1 异步回调中的 UAF（Use-After-Free）
+
+**问题场景**：ROS2 Action/Service 回调 + BehaviorTree 节点生命周期不一致
+
+**典型错误模式**：
+```cpp
+// ❌ 错误：TOCTOU 竞态条件
+callback = [this, weak_self](...) {
+    if (weak_self.expired()) {  // ← 检查时刻
+        return;
+    }
+    // 另一个线程删除对象
+    if (!member_variable_) {    // ← 使用时刻（UAF！）
+        return;
+    }
+};
+```
+
+**正确写法**：
+```cpp
+// ✅ 正确：原子 lock + RAII 保护
+callback = [this, weak_self](...) {
+    auto shared_self = weak_self.lock();  // ← 原子操作
+    if (!shared_self) {
+        return;  // 对象已销毁
+    }
+    // shared_ptr 持有对象生命周期，安全访问
+    if (!member_variable_) {  // ← 安全
+        return;
+    }
+};
+```
+
+**关键原则**：
+1. **绝不使用 `weak_ptr.expired()` 检查后直接访问成员**
+2. **必须使用 `weak_ptr.lock()` 获取 `shared_ptr`**
+3. **`shared_ptr` 持有期间保证对象不会被删除**
+4. **所有异步回调（goal_response/result/feedback）都需检查**
+
+**适用场景**：
+- ROS2 Action 客户端回调
+- ROS2 Service 回调
+- 定时器回调
+- 任何跨线程的 lambda 捕获 `this`
+
+**检测工具**：
+- AddressSanitizer（`-fsanitize=address`）
+- ThreadSanitizer（`-fsanitize=thread`）
+
+**相关 Commit**：
+- `8438221` fix(task_manager): 修复 HeadControlAction 的 heap-use-after-free 竞态条件
+
+---
+
+## 11. 文档与可视化
 - **README** 简洁；**SOP** 面向一线可执行；复杂流程提供 **Mermaid** 流程图/时序图。
 - **示例**：每个可复用模块提供 1 个最小示例（构建命令 + 运行命令）。
 
 ---
 
-## 11. 约定速记（贴墙版）
+## 12. 约定速记（贴墙版）
 - **命名**：`snake_case`；类型 `UpperCamelCase`。
 - **所有权**：RAII，禁止 `new/delete`；首选 `unique_ptr`。
 - **接口**：`string_view/span/optional`；`[[nodiscard]]` 防漏用。
@@ -121,12 +177,12 @@ project/
 - **依赖**：优先 `third_party/`（vendor）。
 
 
-## 12. 沟通与反馈
+## 13. 沟通与反馈
 
 - **如果我的观点有误或过时，随时直接指出，不留情面。**以事实与数据为准，立刻修正，不拖延。
 
 
-## 13. Shell 检测与命令适配
+## 14. Shell 检测与命令适配
 
 ### POSIX（bash/zsh）自检
 ```bash
