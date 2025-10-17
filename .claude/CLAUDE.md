@@ -78,12 +78,12 @@ project/
 
 **简单修改**（单行即可）：
 ```
-<type>(<scope>): 简短描述
+<type>: 简短描述
 ```
 
 **复杂修改**（多段式）：
 ```
-<type>(<scope>): 简短标题（一行概括）
+<type>: 简短标题（一行概括）
 
 问题描述：
 - 原有逻辑/问题现象
@@ -103,9 +103,8 @@ project/
 ```
 
 **关键要素说明**：
-1. **标题行**：`<type>(<scope>): 简短描述`
+1. **标题行**：`<type>: 简短描述`
    - **type**: feat/fix/refactor/docs/test/chore 等
-   - **scope**: 具体修改的组件/模块名（如 `double_arm_action`、`dynamic_task_manager`）
    - **简短描述**: 一句话说明做了什么
 
 2. **问题描述**：说明"为什么"要修改
@@ -230,6 +229,151 @@ callback = [this, weak_self](...) {
 
 **相关 Commit**：
 - `8438221` fix(task_manager): 修复 HeadControlAction 的 heap-use-after-free 竞态条件
+
+### 10.2 异步回调生命周期管理缺陷（局部变量过早销毁）
+
+**问题场景**：ROS2 Action 客户端异步回调 + 局部生命周期标记
+
+**症状**：Action Server 有时收不到 goal，间歇性失败（10%-80%概率），命令行发送总是正常。
+
+**典型错误模式**：
+```cpp
+// ❌ 错误：生命周期标记是局部变量
+BT::NodeStatus onStart() {
+    // 创建局部生命周期标记
+    auto self = std::make_shared<int>(1);  // ← 局部变量！
+    weak_self_ = self;
+
+    send_goal_options.goal_response_callback =
+        [this, weak_self = weak_self_, self](...) {  // ← 捕获局部变量
+            auto shared_self = weak_self.lock();
+            if (!shared_self) {
+                // ← 检测到"对象已销毁"，直接返回
+                return;  // goal_handle_ 永远不会被设置！
+            }
+            goal_handle_ = goal_handle;
+        };
+
+    async_send_goal(goal, send_goal_options);
+    return BT::NodeStatus::RUNNING;
+    // ← 函数返回后，局部变量 self 立即被销毁！
+}
+```
+
+**时序分析（为什么间歇性失败）**：
+
+成功场景（罕见）：
+```
+T0: onStart() 被调用
+T1: 创建 self (引用计数=1)
+T2: async_send_goal() 发送请求
+T3: Server 立即接受 goal
+T4: goal_response_callback 被调度
+T5: 回调执行，weak_self.lock() 成功（self 还存活）✓
+T6: goal_handle_ 被正确设置
+T7: onStart() 返回，self 被销毁
+```
+
+失败场景（常见）：
+```
+T0: onStart() 被调用
+T1: 创建 self (引用计数=1)
+T2: async_send_goal() 发送请求
+T3: onStart() 返回 RUNNING
+T4: self 被销毁（离开作用域）← 关键！
+T5: Server 接受 goal（有网络/调度延迟）
+T6: goal_response_callback 被调度
+T7: 回调执行，weak_self.lock() 返回 nullptr ✗
+T8: 回调直接返回，goal_handle_ 永远不会被设置
+T9: Server 认为已接受，但 Client 侧没有 handle
+```
+
+**失败概率影响因素**：
+- 网络延迟：DDS 通信延迟增加失败率
+- Executor 调度：MultiThreadedExecutor 的不确定性
+- 系统负载：CPU 忙时，回调调度延迟
+- CallbackGroup 竞争：MutuallyExclusive 类型导致阻塞
+
+估算失败率：
+- 低负载 + 本地通信：10-20%
+- 高负载 + 网络通信：60-80%
+- 极端情况：接近100%
+
+**正确写法**：
+```cpp
+// ✅ 正确：生命周期标记作为成员变量
+class NavAction {
+private:
+    std::shared_ptr<void> self_holder_;  // ← 成员变量
+    std::weak_ptr<void> weak_self_;
+};
+
+BT::NodeStatus onStart() {
+    // 创建成员变量的生命周期标记
+    self_holder_ = std::make_shared<int>(1);  // ← 成员变量
+    weak_self_ = self_holder_;
+
+    send_goal_options.goal_response_callback =
+        [this, weak_self = weak_self_](...) {  // ← 只捕获 weak_ptr
+            auto shared_self = weak_self.lock();
+            if (!shared_self) {
+                return;  // 对象已销毁（节点被停止）
+            }
+            goal_handle_ = goal_handle;  // ← 正常设置
+        };
+
+    async_send_goal(goal, send_goal_options);
+    return BT::NodeStatus::RUNNING;
+    // ← self_holder_ 作为成员变量，会持续存活到 onRunning/onHalted 清理
+}
+
+BT::NodeStatus onRunning() {
+    if (action_completed_) {
+        // 清理生命周期标记
+        weak_self_.reset();
+        self_holder_.reset();  // ← 释放
+        return success ? SUCCESS : FAILURE;
+    }
+    return RUNNING;
+}
+
+void onHalted() {
+    // 清理生命周期标记
+    weak_self_.reset();
+    self_holder_.reset();  // ← 释放
+}
+```
+
+**关键原则**：
+1. **绝不在异步回调中捕获局部变量作为生命周期标记**
+2. **生命周期标记必须是成员变量（self_holder_），确保在整个 Action 执行期间存活**
+3. **回调中只捕获 weak_ptr，不捕获 shared_ptr**
+4. **在 onRunning（完成时）和 onHalted（停止时）中释放 self_holder_**
+5. **使用 RAII 模式管理生命周期，避免手动管理**
+
+**为什么命令行总是正常**：
+- 独立进程，有独立的 Executor
+- 生命周期绑定到整个命令执行
+- 独享 CallbackGroup，无资源竞争
+- 通常会同步等待结果
+
+**检测工具**：
+- AddressSanitizer（`-fsanitize=address`）：检测 UAF
+- ThreadSanitizer（`-fsanitize=thread`）：检测数据竞争
+- 日志验证：在回调中添加 `RCLCPP_WARN` 记录 `weak_self.lock()` 结果
+
+**适用场景**：
+- ROS2 Action 客户端（NavAction, WaistAction, DoubleArmAction, HeadControlAction）
+- ROS2 Service 异步回调
+- 任何异步回调 + 短生命周期对象的组合
+
+**相关修复**：
+- fix(task_manager): 修复 nav_action/waist_action/double_arm_action/head_control_action 的异步回调生命周期缺陷
+- 影响文件：
+  - nav_action.h/cpp
+  - waist_action.h/cpp
+  - double_arm_action.h/cpp
+  - head_control_action.h/cpp
 
 ---
 
