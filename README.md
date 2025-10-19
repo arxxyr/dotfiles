@@ -1,20 +1,42 @@
 # .cfg
 
-
 ## 在新环境上找回你的配置
 如果你已经在云端仓库保存了你的配置文件，你可以按照下面的步骤取回来：
 
 ```
-sudo pacman -S --needed git lazygit zsh clang cmake llvm unzip neovim ranger ripgrep fzf neofetch python xsel npm wget
-```
-```
-sudo pacman -S --needed alacritty kitty
-```
-```
-curl -o- https://bootstrap.pypa.io/get-pip.py | python
-```
-```
-python -m pip install --upgrade pip
+sudo apt update -y
+sudo apt full-upgrade -y
+sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+  bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+  g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+  libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
+  libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
+  ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
+  python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
+  upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd clangd clang-tidy zsh ranger ripgrep fzf  \
+  neofetch python3-dev zoxide xsel btop net-tools proxychains4 jq
+
+# 安装 neovim 
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:neovim-ppa/unstable
+sudo apt update
+sudo apt install neovim -y
+
+# 安装 wezterm
+curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
+echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list
+sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg
+
+sudo apt update
+sudo apt install wezterm-nightly -y
+sudo update-alternatives --config x-terminal-emulator
+
+# 安装 uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 强制 apt 使用 ipv4 下载
+echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 > /dev/null
+
 ```
 
 把仓库里的内容下载下来：
@@ -37,10 +59,6 @@ git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/z
 git clone https://github.com/zsh-users/zsh-completions $ZSH_CUSTOM/plugins/zsh-completions
 ```
 
-安装 powerlevel10k
-```
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
-```
 
 rust
 ```
@@ -76,15 +94,11 @@ source "$HOME/.bashrc"
 ```
 pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple
 ```
-安装python virtualenv
-```
-pip install virtualenv virtualenvwrapper -i https://pypi.mirrors.ustc.edu.cn/simple
-```
 
 
 安装yay
 ```
-sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
+# sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
 ```
 
 python支持
@@ -101,11 +115,6 @@ sudo npm i -g prettier
 rust
 ```
 cargo install stylua
-```
-
-uv
-```
-curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ## Good bash
