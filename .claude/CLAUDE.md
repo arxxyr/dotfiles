@@ -64,7 +64,7 @@ project/
 
 ### 6.1 基本规范
 - **分支**：`master` 保护；特性分支 `feat/*`、修复 `fix/*`。
-- **提交规范**：Conventional Commits（`feat/fix/refactor/docs/test/build/chore/style/perf/build/ci/revert`）。
+- **提交规范**：Conventional Commits（`feat/fix/refactor/docs/test/build/chore/style/perf/build/ci/revert`），**不使用 scope 括号**。
 - **评审**：小步提交；PR 必需通过构建与静态检查；描述明确动机与影响面。
 - **标签**：`vX.Y.Z`；遵循语义化版本。
 - **署名**：生成commit的时候不要加最后的
@@ -103,9 +103,11 @@ project/
 ```
 
 **关键要素说明**：
-1. **标题行**：`<type>: 简短描述`
+1. **标题行**：`<type>: 简短描述`（**不带 scope 括号**）
    - **type**: feat/fix/refactor/docs/test/chore 等
    - **简短描述**: 一句话说明做了什么
+   - **错误示例**：`feat(module): 描述` ❌
+   - **正确示例**：`feat: 描述` ✅
 
 2. **问题描述**：说明"为什么"要修改
    - 原有逻辑是什么
@@ -125,7 +127,7 @@ project/
 
 **示例**：
 ```
-fix(muliti_pose_generator): 调整多层级位姿生成的排序顺序
+fix: 调整多层级位姿生成的排序顺序
 
 问题描述：
 - 原排序逻辑：拾取从低到高入队（出队从高到低），放置从高到低入队（出队从低到高）
@@ -228,7 +230,7 @@ callback = [this, weak_self](...) {
 - ThreadSanitizer（`-fsanitize=thread`）
 
 **相关 Commit**：
-- `8438221` fix(task_manager): 修复 HeadControlAction 的 heap-use-after-free 竞态条件
+- `8438221` fix: 修复 HeadControlAction 的 heap-use-after-free 竞态条件
 
 ### 10.2 异步回调生命周期管理缺陷（局部变量过早销毁）
 
@@ -368,7 +370,7 @@ void onHalted() {
 - 任何异步回调 + 短生命周期对象的组合
 
 **相关修复**：
-- fix(task_manager): 修复 nav_action/waist_action/double_arm_action/head_control_action 的异步回调生命周期缺陷
+- fix: 修复 nav_action/waist_action/double_arm_action/head_control_action 的异步回调生命周期缺陷
 - 影响文件：
   - nav_action.h/cpp
   - waist_action.h/cpp
