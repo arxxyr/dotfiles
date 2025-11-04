@@ -160,6 +160,8 @@ fix: 调整多层级位姿生成的排序顺序
   * 依赖策略：所有 crate **默认使用 crates.io 最新稳定版**，除非被锁定以保证兼容性或 reproducibility。
   * 工程脚手架可用 `cargo new` / `cargo generate`，CI 中启用 `cargo clippy` + `cargo fmt`。
   * 构建标志：`RUSTFLAGS="-C target-cpu=native -C link-arg=-fuse-ld=lld"`（Release 模式下）。
+  * 尽量不用.unwrap()
+  * git commit之前运行`cargo fmt --all`和`cargo clippy --all`
   * 内存管理：使用```mimalloc```
   * 测试：`cargo test --all --release`；基准测试启用 `criterion`。
 
