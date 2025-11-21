@@ -68,6 +68,7 @@ project/
 - **提交规范**：Conventional Commits（`feat/fix/refactor/docs/test/build/chore/style/perf/build/ci/revert`），**不使用 scope 括号**。
 - **评审**：小步提交；PR 必需通过构建与静态检查；描述明确动机与影响面。
 - **标签**：`vX.Y.Z`；遵循语义化版本。
+- **Emoji**: 可以使用(推荐)。
 - **署名**：生成commit的时候不要加最后的
     ``` 🤖 Generated with [Claude Code](https://claude.ai/code)
 
