@@ -159,6 +159,7 @@ export NVM_DIR="$HOME/.nvm"
 export PATH="$HOME/env/zig:$PATH"
 
 
-export RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
-export RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
+export RUSTUP_DIST_SERVER="https://rsproxy.cn"
+export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup"
+
 ulimit -c unlimited
