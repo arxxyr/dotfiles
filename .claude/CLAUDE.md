@@ -383,6 +383,81 @@ void onHalted() {
   - double_arm_action.h/cpp
   - head_control_action.h/cpp
 
+### 10.3 ROS2 Action Server goal_handle 终止原则
+
+**问题场景**：ROS2 Action Server 多线程环境下 goal_handle 状态变更竞态
+
+**设计原则**：
+> **goal_handle 的终止（abort/cancel/succeed）只在执行线程里发生，避免并发调用**
+
+**典型错误模式**：
+```cpp
+// ❌ 错误：在 handleAccepted 中直接 abort 旧 goal
+void handleAccepted(GoalHandle goal_handle) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (current_goal_handle_) {
+        current_goal_handle_->abort(result);  // ← 与执行线程竞争！
+    }
+    current_goal_handle_ = goal_handle;
+    // 启动新线程执行
+}
+```
+
+**竞态条件分析**：
+- `handleAccepted` 在 Action Server 回调线程执行
+- `executeTrajectory` 在独立执行线程执行
+- 两个线程同时调用 `goal_handle->abort()` 或一个 `abort` 一个 `succeed` 导致未定义行为
+
+**正确写法**：
+```cpp
+// ✅ 正确：通过 stop_token 通知执行线程自己终止
+void handleAccepted(GoalHandle goal_handle) {
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    // 通知旧线程停止，旧线程会自己 abort 旧 goal
+    if (thread_.joinable()) {
+        thread_.request_stop();
+        lock.unlock();
+        thread_.join();  // 等待旧线程完成（包括 abort）
+        lock.lock();
+    }
+
+    current_goal_handle_ = goal_handle;
+    thread_ = std::jthread([this, goal_handle](std::stop_token stop_token) {
+        executeTrajectory(goal_handle, stop_token);
+    });
+}
+
+void executeTrajectory(GoalHandle goal_handle, std::stop_token stop_token) {
+    while (executing && !stop_token.stop_requested()) {
+        // 执行逻辑
+    }
+
+    if (stop_token.stop_requested()) {
+        // 由执行线程负责 abort 自己的 goal
+        goal_handle->abort(result);  // ← 只在执行线程中调用
+        return;
+    }
+
+    goal_handle->succeed(result);  // ← 只在执行线程中调用
+}
+```
+
+**关键原则**：
+1. **goal_handle 状态变更只在执行线程中发生**（abort/cancel/succeed）
+2. **使用 std::jthread + stop_token 通知执行线程停止**
+3. **handleAccepted 只负责通知和等待，不直接操作 goal_handle 状态**
+4. **unlock 后再 join，避免死锁**
+5. **执行线程检测到 stop_requested 后自己 abort**
+
+**适用场景**：
+- ROS2 Action Server（FollowJointTrajectory 等）
+- 任何多线程环境下的状态机状态变更
+- 需要取消/替换正在执行任务的场景
+
+**相关修复**：
+- refactor: marvin_node trajectory action 执行线程安全重构
+
 ---
 
 ## 11. 文档与可视化
