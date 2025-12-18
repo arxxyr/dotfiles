@@ -37,7 +37,7 @@ project/
   └─ 3rd-party/        # 外部依赖（如需内置）
 ```
 - **CMake**：`-std=c++20`，分 `Debug/Release/ASan/UBSan/TSan` 预设；启用 LTO（Release）；跨平台开关 `BUILD_TESTS` / `BUILD_TOOLS`。
-- **依赖**：优先使用 `third_party/`（vendor 内置）；必要时再用包管理器（apt/vcpkg/conda-forge）或 `CPM.cmake/FetchContent`。
+- **依赖**：优先使用 `3rd-party`（vendor 内置）；必要时再用包管理器（apt/vcpkg/conda-forge）或 `CPM.cmake/FetchContent`。
 
 ---
 
@@ -475,7 +475,7 @@ void executeTrajectory(GoalHandle goal_handle, std::stop_token stop_token) {
 - **JSON**：`nlohmann::json`；`to_json/from_json` 成对提供。
 - **构建**：C++20；CI 把警告当错误；ASan/UBSan 预设可开。
 - **日志**：`spdlog` 单一选择；关键路径结构化。
-- **依赖**：优先 `third_party/`（vendor）。
+- **依赖**：优先 `3rd-party/`（vendor）。
 
 
 ## 13. 沟通与反馈
