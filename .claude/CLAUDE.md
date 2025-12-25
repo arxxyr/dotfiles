@@ -20,6 +20,7 @@
 - **注释**：中文为主，**注重意图**与不变量；公共 API 用简短示例说明输入/输出与复杂度。
 - **打印与日志**：推荐 `spdlog`（单项目选定一种，不混用）。
 - **并发**：使用 `std::jthread` + `stop_token`；任务图/并行优先用 **Taskflow**；避免共享可变态，偏向消息/队列。
+- **控制流**：**严禁使用 `goto` 语句**；使用结构化控制流（if-else、循环、函数提取）代替；复杂逻辑用状态机或分支表处理。
 
 ---
 
@@ -70,7 +71,23 @@ project/
 - **提交规范**：Conventional Commits（`feat/fix/refactor/docs/test/build/chore/style/perf/build/ci/revert`），**不使用 scope 括号**。
 - **评审**：小步提交；PR 必需通过构建与静态检查；描述明确动机与影响面。
 - **标签**：`vX.Y.Z`；遵循语义化版本。
-- **Emoji**: 可以使用(推荐)。
+- **Emoji**: 可以使用(推荐)，放在 type 前面。
+- **常用 Emoji 对照表**：
+  | Emoji | Type | 含义 |
+  |-------|------|------|
+  | ✨ | feat | 新功能 |
+  | 🐛 | fix | Bug 修复 |
+  | 🔧 | refactor | 重构（不改变功能） |
+  | 📝 | docs | 文档 |
+  | ✅ | test | 测试 |
+  | 🎨 | style | 代码格式/风格 |
+  | ⚡ | perf | 性能优化 |
+  | 🔨 | build | 构建系统 |
+  | 🚀 | ci | CI/CD |
+  | 🧹 | chore | 杂项/清理 |
+  | ⏪ | revert | 回滚 |
+  | 🔒 | security | 安全修复 |
+  | 🗑️ | remove | 删除代码/文件 |
 - **署名**：生成commit的时候不要加最后的
     ``` 🤖 Generated with [Claude Code](https://claude.ai/code)
 
@@ -132,7 +149,7 @@ project/
 
 **示例**：
 ```
-fix: 调整多层级位姿生成的排序顺序
+🐛 fix: 调整多层级位姿生成的排序顺序
 
 问题描述：
 - 原排序逻辑：拾取从低到高入队（出队从高到低），放置从高到低入队（出队从低到高）
@@ -470,6 +487,7 @@ void executeTrajectory(GoalHandle goal_handle, std::stop_token stop_token) {
 ## 12. 约定速记（贴墙版）
 - **命名**：`snake_case`；类型 `UpperCamelCase`。
 - **所有权**：RAII，禁止 `new/delete`；首选 `unique_ptr`。
+- **控制流**：**严禁 `goto`**；用 if-else/状态机代替。
 - **接口**：`string_view/span/optional`；`[[nodiscard]]` 防漏用。
 - **错误**：返回值优先（`std::optional`），异常最小化。
 - **JSON**：`nlohmann::json`；`to_json/from_json` 成对提供。
