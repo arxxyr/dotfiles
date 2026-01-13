@@ -163,3 +163,6 @@ export RUSTUP_DIST_SERVER="https://rsproxy.cn"
 export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup"
 
 ulimit -c unlimited
+
+# 自定义脚本目录（避免重复添加）
+[[ ":$PATH:" != *":$HOME/.custom_scripts:"* ]] && export PATH="$HOME/.custom_scripts:$PATH"
