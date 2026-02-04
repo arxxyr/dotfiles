@@ -34,7 +34,8 @@ echo "Supported: ${!TZ_MAP[*]}"
 exit 1
 fi
 
-echo "[1/6] Setting timezone: $TZ (UTC${OFFSET>=0:++}${OFFSET})"
+SIGN=""; [[ "$OFFSET" != -* ]] && SIGN="+"
+echo "[1/6] Setting timezone: $TZ (UTC${SIGN}${OFFSET})"
 sudo timedatectl set-timezone "$TZ"
 
 echo "[2/6] Installing chrony..."
