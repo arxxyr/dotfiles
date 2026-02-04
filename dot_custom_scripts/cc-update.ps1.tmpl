@@ -1,0 +1,29 @@
+{{- if eq .chezmoi.os "windows" }}
+param(
+[string]$Proxy = 'http://127.0.0.1:10808'
+)
+
+$ErrorActionPreference = 'Stop'
+
+$old_http = $env:HTTP_PROXY
+$old_https = $env:HTTPS_PROXY
+
+try {
+$env:HTTP_PROXY = $Proxy
+$env:HTTPS_PROXY = $Proxy
+
+Write-Host "[1/2] Upgrading all packages (proxy: $Proxy)..."
+winget upgrade --all `
+--accept-source-agreements `
+--accept-package-agreements `
+--proxy $Proxy `
+--verbose-logs
+
+Write-Host "[2/2] Done"
+} finally {
+$env:HTTP_PROXY = $old_http
+$env:HTTPS_PROXY = $old_https
+}
+
+Write-Host "[OK] Done"
+{{ end -}}

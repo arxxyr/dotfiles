@@ -1,0 +1,29 @@
+{{- if ne .chezmoi.os "windows" }}
+#!/usr/bin/env bash
+set -euo pipefail
+
+FORCE_IPV4="${FORCE_IPV4:-1}"
+PROXYCHAINS="${PROXYCHAINS_BIN:-proxychains}"
+
+tmp_conf=""
+cleanup() {
+[[ -n "${tmp_conf:-}" && -f "$tmp_conf" ]] && sudo rm -f "$tmp_conf" || true
+}
+trap cleanup EXIT
+
+if [[ "$FORCE_IPV4" == "1" ]]; then
+tmp_conf="/etc/apt/apt.conf.d/99-force-ipv4-tmp-$(date +%s)"
+echo 'Acquire::ForceIPv4 "true";' | sudo tee "$tmp_conf" >/dev/null
+fi
+
+echo "[1/3] Updating package index..."
+sudo "$PROXYCHAINS" apt update
+
+echo "[2/3] Upgrading packages..."
+sudo "$PROXYCHAINS" apt full-upgrade -y
+
+echo "[3/3] Cleaning up..."
+sudo apt autoremove --purge -y
+
+echo "[OK] Done"
+{{ end -}}
