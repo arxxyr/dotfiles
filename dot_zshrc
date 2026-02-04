@@ -119,7 +119,7 @@ alias ls='ls --color=auto'
 alias ip='ip -color=auto'
 alias grep='grep --color=auto'
 alias diff='diff --color=auto'
-alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
+# alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
 autoload -U compinit && compinit
 # autoload -U bashcompinit && bashcompinit
