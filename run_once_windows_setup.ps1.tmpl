@@ -1,0 +1,50 @@
+{{- if eq .chezmoi.os "windows" -}}
+# 自动将 ~/.custom_scripts 加入用户 PATH
+
+$scriptDir = Join-Path $env:USERPROFILE '.custom_scripts'
+
+$currentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+
+if ($currentPath -notlike "*$scriptDir*") {
+    $newPath = "$currentPath;$scriptDir"
+    [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+    Write-Host "✅ 已将 $scriptDir 加入用户 PATH"
+} else {
+    Write-Host "ℹ️ $scriptDir 已在 PATH 中，跳过"
+}
+
+# 允许执行本地脚本（如果还没设置）
+$policy = Get-ExecutionPolicy -Scope CurrentUser
+if ($policy -eq 'Restricted') {
+    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+    Write-Host "✅ 已设置 ExecutionPolicy 为 RemoteSigned"
+}
+
+# 创建便捷别名到 PowerShell Profile
+$profilePath = $PROFILE.CurrentUserAllHosts
+if (!(Test-Path $profilePath)) {
+    New-Item -Path $profilePath -ItemType File -Force | Out-Null
+}
+
+$aliasBlock = @'
+
+# === chezmoi custom scripts aliases ===
+Set-Alias cc-update "$env:USERPROFILE\.custom_scripts\cc-winupdate.ps1"
+Set-Alias cc-claude "$env:USERPROFILE\.custom_scripts\run_claude_with_proxy.ps1"
+# === end chezmoi aliases ===
+'@
+
+$profileContent = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
+if ($profileContent -notlike '*chezmoi custom scripts*') {
+    Add-Content -Path $profilePath -Value $aliasBlock
+    Write-Host "✅ 已添加别名到 $profilePath"
+} else {
+    Write-Host "ℹ️ 别名已存在，跳过"
+}
+{{- else -}}
+#!/bin/sh
+# Linux/macOS: 不需要额外设置，.zshrc 里已经有 PATH
+echo "非 Windows 系统，跳过"
+{{- end -}}
+
+
