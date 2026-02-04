@@ -1,6 +1,4 @@
 {{- if eq .chezmoi.os "windows" -}}
-# 自动将 ~/.custom_scripts 加入用户 PATH
-
 $scriptDir = Join-Path $env:USERPROFILE '.custom_scripts'
 
 $currentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -8,19 +6,21 @@ $currentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if ($currentPath -notlike "*$scriptDir*") {
     $newPath = "$currentPath;$scriptDir"
     [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
-    Write-Host "✅ 已将 $scriptDir 加入用户 PATH"
+    Write-Host "[OK] Added $scriptDir to user PATH"
 } else {
-    Write-Host "ℹ️ $scriptDir 已在 PATH 中，跳过"
+    Write-Host "[SKIP] $scriptDir already in PATH"
 }
 
-# 允许执行本地脚本（如果还没设置）
-$policy = Get-ExecutionPolicy -Scope CurrentUser
-if ($policy -eq 'Restricted') {
-    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
-    Write-Host "✅ 已设置 ExecutionPolicy 为 RemoteSigned"
+try {
+    $policy = Get-ExecutionPolicy -Scope CurrentUser
+    if ($policy -eq 'Restricted') {
+        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+        Write-Host "[OK] Set ExecutionPolicy to RemoteSigned"
+    }
+} catch {
+    Write-Host "[SKIP] ExecutionPolicy check skipped (not critical)"
 }
 
-# 创建便捷别名到 PowerShell Profile
 $profilePath = $PROFILE.CurrentUserAllHosts
 if (!(Test-Path $profilePath)) {
     New-Item -Path $profilePath -ItemType File -Force | Out-Null
@@ -37,14 +37,12 @@ Set-Alias cc-claude "$env:USERPROFILE\.custom_scripts\run_claude_with_proxy.ps1"
 $profileContent = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
 if ($profileContent -notlike '*chezmoi custom scripts*') {
     Add-Content -Path $profilePath -Value $aliasBlock
-    Write-Host "✅ 已添加别名到 $profilePath"
+    Write-Host "[OK] Added aliases to $profilePath"
 } else {
-    Write-Host "ℹ️ 别名已存在，跳过"
+    Write-Host "[SKIP] Aliases already exist"
 }
 {{- else -}}
 #!/bin/sh
-# Linux/macOS: 不需要额外设置，.zshrc 里已经有 PATH
-echo "非 Windows 系统，跳过"
+echo "[SKIP] Not Windows"
 {{- end -}}
-
 
