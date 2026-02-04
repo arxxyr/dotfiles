@@ -1,0 +1,80 @@
+{{- if ne .chezmoi.os "windows" }}
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: cc-synctime [offset]
+# Examples: cc-synctime 8 (UTC+8, Shanghai)
+# cc-synctime -5 (UTC-5, New York)
+# cc-synctime 0 (UTC)
+# cc-synctime (default: UTC+8)
+
+OFFSET="${1:-8}"
+
+# Map offset to timezone
+declare -A TZ_MAP=(
+[-12]="Etc/GMT+12" [-11]="Etc/GMT+11" [-10]="Pacific/Honolulu"
+[-9]="America/Anchorage" [-8]="America/Los_Angeles" [-7]="America/Denver"
+[-6]="America/Chicago" [-5]="America/New_York" [-4]="America/Halifax"
+[-3]="America/Sao_Paulo" [-2]="Etc/GMT+2" [-1]="Atlantic/Azores"
+[0]="UTC"
+[1]="Europe/London" [2]="Europe/Berlin" [3]="Europe/Moscow"
+[4]="Asia/Dubai" [5]="Asia/Karachi" [5.5]="Asia/Kolkata"
+[6]="Asia/Dhaka" [7]="Asia/Bangkok" [8]="Asia/Shanghai"
+[9]="Asia/Tokyo" [10]="Australia/Sydney" [11]="Pacific/Noumea"
+[12]="Pacific/Auckland"
+)
+
+# Normalize: "-0" -> "0", "+8" -> "8"
+OFFSET=$(echo "$OFFSET" | sed 's/^+//; s/^-0$/0/')
+
+TZ="${TZ_MAP[$OFFSET]:-}"
+if [[ -z "$TZ" ]]; then
+echo "[ERROR] Unknown offset: $OFFSET"
+echo "Supported: ${!TZ_MAP[*]}"
+exit 1
+fi
+
+echo "[1/6] Setting timezone: $TZ (UTC${OFFSET>=0:++}${OFFSET})"
+sudo timedatectl set-timezone "$TZ"
+
+echo "[2/6] Installing chrony..."
+sudo apt-get update -y -qq
+sudo apt-get install -y -qq chrony
+sudo apt-get install -y -qq ntpdate 2>/dev/null || sudo apt-get install -y -qq ntpsec-ntpdate 2>/dev/null || true
+
+echo "[3/6] Configuring NTP sources..."
+sudo tee /etc/chrony/chrony.conf >/dev/null <<'CONF'
+driftfile /var/lib/chrony/chrony.drift
+server time.cloudflare.com iburst
+server ntp.aliyun.com iburst
+server ntp.tencent.com iburst
+server pool.ntp.org iburst
+makestep 1.0 3
+rtcsync
+log tracking measurements statistics
+logdir /var/log/chrony
+CONF
+
+echo "[4/6] Restarting chrony..."
+sudo systemctl enable --now chrony
+sudo systemctl restart chrony
+sudo systemctl stop systemd-timesyncd 2>/dev/null || true
+sudo systemctl disable systemd-timesyncd 2>/dev/null || true
+
+echo "[5/6] Syncing time..."
+sudo chronyc -a makestep >/dev/null 2>&1 || \
+sudo ntpdate -u time.cloudflare.com 2>/dev/null || \
+sudo ntpdate -u ntp.aliyun.com 2>/dev/null || \
+sudo ntpdate -u pool.ntp.org 2>/dev/null || true
+
+# Write to hardware clock if not in container
+virt="$(systemd-detect-virt -c 2>/dev/null || true)"
+if [[ "$virt" == "none" || -z "$virt" ]]; then
+sudo hwclock --systohc 2>/dev/null || true
+fi
+
+echo "[6/6] Result:"
+timedatectl
+echo ""
+echo "[OK] Timezone set to $TZ, time synced"
+{{ end -}}

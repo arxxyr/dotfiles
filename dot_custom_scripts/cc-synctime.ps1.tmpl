@@ -1,0 +1,67 @@
+{{- if eq .chezmoi.os "windows" }}
+param(
+[Parameter(Position=0)]
+[string]$Offset = '8'
+)
+
+$ErrorActionPreference = 'Stop'
+
+$tzMap = @{
+'-12' = 'Dateline Standard Time'
+'-11' = 'UTC-11'
+'-10' = 'Hawaiian Standard Time'
+'-9' = 'Alaskan Standard Time'
+'-8' = 'Pacific Standard Time'
+'-7' = 'Mountain Standard Time'
+'-6' = 'Central Standard Time'
+'-5' = 'Eastern Standard Time'
+'-4' = 'Atlantic Standard Time'
+'-3' = 'SA Eastern Standard Time'
+'-2' = 'UTC-02'
+'-1' = 'Azores Standard Time'
+'0' = 'UTC'
+'1' = 'W. Europe Standard Time'
+'2' = 'E. Europe Standard Time'
+'3' = 'Russian Standard Time'
+'4' = 'Arabian Standard Time'
+'5' = 'West Asia Standard Time'
+'5.5' = 'India Standard Time'
+'6' = 'Central Asia Standard Time'
+'7' = 'SE Asia Standard Time'
+'8' = 'China Standard Time'
+'9' = 'Tokyo Standard Time'
+'10' = 'AUS Eastern Standard Time'
+'11' = 'Central Pacific Standard Time'
+'12' = 'New Zealand Standard Time'
+}
+
+# Normalize offset
+$Offset = $Offset -replace '^\+','' -replace '^-0$','0'
+
+$tz = $tzMap[$Offset]
+if (-not $tz) {
+Write-Host "[ERROR] Unknown offset: $Offset"
+Write-Host "Supported: $($tzMap.Keys -join ', ')"
+exit 1
+}
+
+$sign = if ([double]$Offset -ge 0) { '+' } else { '' }
+Write-Host "[1/3] Setting timezone: $tz (UTC${sign}${Offset})"
+Set-TimeZone -Id $tz
+
+Write-Host "[2/3] Syncing time with NTP..."
+try {
+w32tm /config /manualpeerlist:"time.cloudflare.com ntp.aliyun.com pool.ntp.org" /syncfromflags:manual /reliable:YES /update | Out-Null
+Restart-Service w32time -ErrorAction SilentlyContinue
+w32tm /resync /force | Out-Null
+} catch {
+Write-Host "[WARN] w32tm sync failed, trying net time..."
+net time /setsntp:time.cloudflare.com 2>$null
+}
+
+Write-Host "[3/3] Result:"
+Get-TimeZone | Format-Table -AutoSize
+Get-Date -Format 'yyyy-MM-dd HH:mm:ss K'
+
+Write-Host "[OK] Timezone set to $tz, time synced"
+{{ end -}}
