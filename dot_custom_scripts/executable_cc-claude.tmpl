@@ -11,8 +11,8 @@ if [[ -z "$pids" ]]; then
 echo "[OK] No claude processes running"
 exit 0
 fi
-echo "Killing claude processes:"
-ps -p $pids -o pid,tty,time,cmd --no-headers 2>/dev/null || true
+echo "Killing claude processes"
+echo "  PIDs: $pids"
 kill $pids 2>/dev/null || true
 sleep 0.5
 remaining=$(pgrep -x claude 2>/dev/null || true)
