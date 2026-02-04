@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 查找所有 claude 进程
+pids=$(pgrep -x claude 2>/dev/null || true)
+
+if [[ -z "$pids" ]]; then
+    echo "没有运行中的 claude 进程"
+    exit 0
+fi
+
+echo "杀死以下 claude 进程："
+ps -p $pids -o pid,tty,time,cmd --no-headers 2>/dev/null || true
+
+kill $pids 2>/dev/null || true
+sleep 0.5
+
+# 检查是否还有残留，强制杀死
+remaining=$(pgrep -x claude 2>/dev/null || true)
+if [[ -n "$remaining" ]]; then
+    kill -9 $remaining 2>/dev/null || true
+fi
+
+echo "✅ 完成"

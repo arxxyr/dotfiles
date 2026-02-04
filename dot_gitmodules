@@ -1,0 +1,3 @@
+[submodule ".config/neofetch/custom"]
+	path = .config/neofetch/custom
+	url = https://github.com/arxxyr/ascii-art-neofetch.git
