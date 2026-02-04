@@ -1,0 +1,36 @@
+{{- if ne .chezmoi.os "windows" }}
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROXY="${CLAUDE_PROXY:-http://127.0.0.1:10808}"
+
+case "${1:-start}" in
+kill)
+pids=$(pgrep -x claude 2>/dev/null || true)
+if [[ -z "$pids" ]]; then
+echo "[OK] No claude processes running"
+exit 0
+fi
+echo "Killing claude processes:"
+ps -p $pids -o pid,tty,time,cmd --no-headers 2>/dev/null || true
+kill $pids 2>/dev/null || true
+sleep 0.5
+remaining=$(pgrep -x claude 2>/dev/null || true)
+[[ -n "$remaining" ]] && kill -9 $remaining 2>/dev/null || true
+echo "[OK] Done"
+;;
+start|"")
+export HTTP_PROXY="$PROXY"
+export HTTPS_PROXY="$PROXY"
+export ALL_PROXY="$PROXY"
+export NO_PROXY="localhost,127.0.0.1,::1,.local"
+export TMPDIR="$HOME/.claude/tmp"
+echo "Proxy: $PROXY"
+exec claude --dangerously-skip-permissions
+;;
+*)
+echo "Usage: cc-claude [start|kill]"
+exit 1
+;;
+esac
+{{ end -}}

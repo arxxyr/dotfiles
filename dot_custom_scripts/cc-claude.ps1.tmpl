@@ -1,0 +1,43 @@
+{{- if eq .chezmoi.os "windows" }}
+param(
+[Parameter(Position=0)]
+[ValidateSet('start','kill')]
+[string]$Action = 'start',
+
+[string]$Proxy = 'http://127.0.0.1:10808',
+[string]$NoProxy = 'localhost,127.0.0.1,::1,.local'
+)
+
+$ErrorActionPreference = 'Stop'
+
+switch ($Action) {
+'kill' {
+$procs = Get-Process -Name 'claude' -ErrorAction SilentlyContinue
+if (-not $procs) {
+Write-Host "[OK] No claude processes running"
+return
+}
+Write-Host "Killing claude processes:"
+$procs | ForEach-Object { Write-Host " PID $($_.Id) - $($_.ProcessName)" }
+$procs | Stop-Process -Force
+Write-Host "[OK] Done"
+}
+'start' {
+$env:HTTP_PROXY = $Proxy
+$env:HTTPS_PROXY = $Proxy
+$env:ALL_PROXY = $Proxy
+$env:NO_PROXY = $NoProxy
+
+Write-Host "Proxy: $Proxy"
+
+$claudeExe = Get-Command 'claude' -ErrorAction SilentlyContinue
+if (-not $claudeExe) {
+$default = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
+if (Test-Path $default) { $claudeExe = $default }
+else { throw 'claude not found. Use -ClaudePath or add to PATH.' }
+}
+
+& $claudeExe --dangerously-skip-permissions
+}
+}
+{{ end -}}
