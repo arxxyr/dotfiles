@@ -1,0 +1,24 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+
+PROXY="${1:-http://127.0.0.1:10808}"
+
+case "${1:-on}" in
+off)
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY
+echo "[OK] Proxy disabled"
+;;
+*)
+[[ "$1" == "on" ]] && PROXY="http://127.0.0.1:10808" || PROXY="${1:-http://127.0.0.1:10808}"
+export HTTP_PROXY="$PROXY"
+export HTTPS_PROXY="$PROXY"
+export ALL_PROXY="$PROXY"
+export NO_PROXY="localhost,127.0.0.1,::1,.local"
+echo "[OK] Proxy set to $PROXY"
+;;
+esac
+
+echo " HTTP_PROXY = ${HTTP_PROXY:-<unset>}"
+echo " HTTPS_PROXY = ${HTTPS_PROXY:-<unset>}"
+echo " ALL_PROXY = ${ALL_PROXY:-<unset>}"
+{{ end -}}

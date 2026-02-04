@@ -1,0 +1,29 @@
+{{- if eq .chezmoi.os "windows" -}}
+param(
+[Parameter(Position=0)]
+[string]$Action = 'on',
+
+[string]$Proxy = 'http://127.0.0.1:10808'
+)
+
+switch ($Action) {
+'off' {
+Remove-Item Env:\HTTP_PROXY -ErrorAction SilentlyContinue
+Remove-Item Env:\HTTPS_PROXY -ErrorAction SilentlyContinue
+Remove-Item Env:\ALL_PROXY -ErrorAction SilentlyContinue
+Write-Host "[OK] Proxy disabled"
+}
+default {
+if ($Action -ne 'on') { $Proxy = $Action }
+$env:HTTP_PROXY = $Proxy
+$env:HTTPS_PROXY = $Proxy
+$env:ALL_PROXY = $Proxy
+$env:NO_PROXY = 'localhost,127.0.0.1,::1,.local'
+Write-Host "[OK] Proxy set to $Proxy"
+}
+}
+
+Write-Host " HTTP_PROXY = $($env:HTTP_PROXY ?? '<unset>')"
+Write-Host " HTTPS_PROXY = $($env:HTTPS_PROXY ?? '<unset>')"
+Write-Host " ALL_PROXY = $($env:ALL_PROXY ?? '<unset>')"
+{{ end -}}

@@ -120,6 +120,8 @@ alias ip='ip -color=auto'
 alias grep='grep --color=auto'
 alias diff='diff --color=auto'
 # alias config='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
+alias cc-proxy='source cc-proxy'
+
 
 autoload -U compinit && compinit
 # autoload -U bashcompinit && bashcompinit
