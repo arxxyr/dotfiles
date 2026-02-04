@@ -23,20 +23,21 @@ chezmoi diff                      # See what changed
 Fresh Ubuntu/Debian setup — run before `chezmoi init`:
 
 ```bash
+
+# Force apt to use IPv4
+echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 > /dev/null
+
 # System packages
 sudo apt update -y && sudo apt full-upgrade -y
 sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
   bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
-  g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
+  g++-multilib git gnutls-dev gperf haveged help2man intltool libelf-dev \
   libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
   libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
   ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
   python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
   upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd clangd clang-tidy zsh ranger ripgrep fzf \
-  neofetch python3-dev zoxide xsel btop net-tools proxychains4 jq
-
-# Force apt to use IPv4
-echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 > /dev/null
+  neofetch python3-dev zoxide xsel btop net-tools proxychains4 jq ripgrep
 
 # Neovim (unstable PPA)
 sudo apt install -y software-properties-common
@@ -63,9 +64,9 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Python / Node / Rust tools
-pip install pynvim black
-sudo npm i -g neovim prettier
-cargo install stylua
+# pip install pynvim black
+# sudo npm i -g neovim prettier
+# cargo install stylua
 
 # pip mirror (China)
 pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple
@@ -141,12 +142,12 @@ git config --global --unset https.proxy
 git config --global credential.helper store
 
 # Remove CUDA
-sudo apt-get --purge remove "*cuda*" "*cublas*" "*cufft*" "*cufile*" "*curand*" \
+sudo apt --purge remove "*cuda*" "*cublas*" "*cufft*" "*cufile*" "*curand*" \
   "*cusolver*" "*cusparse*" "*gds-tools*" "*npp*" "*nvjpeg*" "nsight*" "*nvvm*"
 
 # Remove NVIDIA drivers
-sudo apt-get --purge remove "*nvidia*" "libxnvctrl*"
-sudo apt-get autoremove -y
+sudo apt --purge remove "*nvidia*" "libxnvctrl*"
+sudo apt autoremove -y
 sudo apt install linux-headers-$(uname -r)
 ```
 
