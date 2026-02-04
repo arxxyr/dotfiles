@@ -1,0 +1,15 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/bin/bash
+mkdir -p ~/.config/chezmoi
+
+if ! grep -q "autoCommit" ~/.config/chezmoi/chezmoi.toml 2>/dev/null; then
+    cat >> ~/.config/chezmoi/chezmoi.toml << 'EOF'
+[git]
+    autoCommit = true
+    autoPush = true
+EOF
+    echo "[OK] chezmoi auto commit/push enabled"
+else
+    echo "[SKIP] already configured"
+fi
+{{ end -}}
