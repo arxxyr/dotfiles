@@ -37,7 +37,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
   ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
   python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
   upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd clangd clang-tidy zsh ranger ripgrep fzf \
-  neofetch python3-dev zoxide xsel btop net-tools proxychains4 jq ripgrep
+  neofetch python3-dev zoxide xsel btop net-tools proxychains4 jq
 
 # Neovim (unstable PPA)
 sudo apt install -y software-properties-common
