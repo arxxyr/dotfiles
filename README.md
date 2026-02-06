@@ -2,6 +2,10 @@
 
 Managed with [chezmoi](https://www.chezmoi.io/). Cross-platform (Linux + Windows).
 
+```bash
+sh -c "$(curl -fsLS get.chezmoi.io/lb)"
+```
+
 ## Quick Start
 
 ### New Machine (One Command)
