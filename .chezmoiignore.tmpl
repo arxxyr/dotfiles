@@ -1,9 +1,11 @@
 {{- if eq .chezmoi.os "windows" }}
+# Windows 上忽略 shell 脚本
 .custom_scripts/cc-claude
 .custom_scripts/cc-update
 .custom_scripts/cc-synctime
 .custom_scripts/cc-proxy
 {{- else }}
+# Linux/macOS 上忽略 PowerShell 脚本
 .custom_scripts/cc-claude.ps1
 .custom_scripts/cc-update.ps1
 .custom_scripts/cc-synctime.ps1

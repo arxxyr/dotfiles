@@ -1,0 +1,48 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/bin/bash
+set -e
+
+# 安装 Homebrew（如果未安装）
+if ! command -v brew &>/dev/null; then
+    echo "[INSTALL] Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || eval "$(/usr/local/bin/brew shellenv 2>/dev/null)"
+else
+    echo "[SKIP] Homebrew already installed"
+fi
+
+# 安装必要工具
+PACKAGES=(
+    neovim
+    zoxide
+    zsh-syntax-highlighting
+    zsh-autosuggestions
+    zsh-completions
+    bash-completion
+    xmake
+)
+
+for pkg in "${PACKAGES[@]}"; do
+    if brew list "$pkg" &>/dev/null; then
+        echo "[SKIP] $pkg already installed"
+    else
+        echo "[INSTALL] $pkg..."
+        brew install "$pkg"
+    fi
+done
+
+# chezmoi auto commit/push
+mkdir -p ~/.config/chezmoi
+if ! grep -q "autoCommit" ~/.config/chezmoi/chezmoi.toml 2>/dev/null; then
+    cat >> ~/.config/chezmoi/chezmoi.toml << 'EOF'
+[git]
+    autoCommit = true
+    autoPush = true
+EOF
+    echo "[OK] chezmoi auto commit/push enabled"
+else
+    echo "[SKIP] chezmoi already configured"
+fi
+
+echo "[DONE] macOS setup complete"
+{{ end -}}
