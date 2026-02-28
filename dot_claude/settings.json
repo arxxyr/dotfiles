@@ -1,7 +1,8 @@
 {
   "env": {
     "HTTP_PROXY": "http://127.0.0.1:10808",
-    "HTTPS_PROXY": "http://127.0.0.1:10808"
+    "HTTPS_PROXY": "http://127.0.0.1:10808",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
     "allow": [],
@@ -21,5 +22,6 @@
     "everything-claude-code@everything-claude-code": true
   },
   "alwaysThinkingEnabled": true,
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "teammateMode": "auto"
 }
