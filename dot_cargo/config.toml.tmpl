@@ -18,8 +18,13 @@ timeout = 600
 multiplexing = false
 {{- if ne .chezmoi.os "darwin" }}
 
+# 如果你走代理（按你的实际改）
 # socks5h 会让 DNS 也走代理，通常更稳
 proxy = "socks5h://127.0.0.1:10808"
+# 或 http 代理
+#proxy = "http://127.0.0.1:10808"
 
+# 如果你的 cargo 支持这俩字段（新版本一般支持）
 low-speed-limit = 1
+# low-speed-time = 600
 {{- end }}
