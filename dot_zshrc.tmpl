@@ -114,12 +114,5 @@ cursor() {
 }
 {{- end }}
 
-{{- if ne .chezmoi.os "darwin" }}
-
-# Rustup 镜像（macOS 除外）
-export RUSTUP_DIST_SERVER="https://rsproxy.cn"
-export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup"
-{{- end }}
-
 # 自定义脚本目录（避免重复添加）
 [[ ":$PATH:" != *":$HOME/.custom_scripts:"* ]] && export PATH="$HOME/.custom_scripts:$PATH"

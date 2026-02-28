@@ -156,13 +156,6 @@ export NVM_DIR="$HOME/.nvm"
 # zig
 export PATH="$HOME/env/zig:$PATH"
 
-{{- if ne .chezmoi.os "darwin" }}
-
-# Rustup 镜像（macOS 除外）
-export RUSTUP_DIST_SERVER="https://rsproxy.cn"
-export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup"
-{{- end }}
-
 ulimit -c unlimited
 
 # 自定义脚本目录（避免重复添加）
