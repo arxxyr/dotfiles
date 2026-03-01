@@ -102,10 +102,11 @@ mimalloc = { version = "0.1", default-features = false }
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 ```
 
-### 提交前检查
+### 提交前检查（必须在 commit 之前执行）
 ```bash
-cargo fmt --all && cargo clippy --all
+cargo fmt --all && cargo clippy --all --all-targets
 ```
+> **强制规则**：每次 `git commit` 前必须先跑 `fmt` + `clippy`，确保零警告后再提交。
 
 ### CI 构建优化
 ```bash
