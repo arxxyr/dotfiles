@@ -599,4 +599,61 @@ if (-not $PSVersionTable) { exit 1 }
 
 ---
 
+## 12. 打包与发布
+
+> 以下规则适用于所有语言的项目，语言特定的编译配置放各自专项章节。
+
+### 版本号
+- 版本号定义在项目的**唯一权威来源**（如 `Cargo.toml`、`pyproject.toml`、`CMakeLists.txt`、`package.json`）
+- 格式遵循 [SemVer](https://semver.org/)：`MAJOR.MINOR.PATCH`（如 `0.3.0`）
+- 多模块/多包项目统一版本，不允许子模块各自定义版本号
+
+### 版本格式
+| 场景 | 格式 | 示例 |
+|------|------|------|
+| Release（推送 `v*` 标签） | `v{version}+{commit7位}` | `v0.3.0+abc1234` |
+| Dev（分支推送） | `v{version}+{日期}.{commit7位}` | `v0.3.0+20260303.abc1234` |
+| 本地部署 | `v{version}` | `v0.3.0` |
+
+### 产物命名
+`{项目名}-{完整版本}-{平台}.{扩展名}`
+
+| 平台 | 扩展名 | 示例 |
+|------|--------|------|
+| Linux x64 | `.tar.gz` | `myapp-v0.3.0+abc1234-linux-x64.tar.gz` |
+| Windows x64 | `.zip` | `myapp-v0.3.0+abc1234-windows-x64.zip` |
+| macOS ARM64 | `.tar.gz` | `myapp-v0.3.0+abc1234-macos-arm64.tar.gz` |
+
+### 打包内容
+```
+package/
+├── 可执行文件（或入口脚本）
+├── VERSION                    # 纯文本版本号
+└── 运行时必需资源/            # 字体、配置、静态文件等
+```
+- 只打包**运行时必需**的文件，不含源码、测试、文档
+- `VERSION` 文件内容与产物命名中的版本一致
+
+### 二进制压缩
+- Linux / Windows：UPX `--best --lzma`（编译型语言适用）
+- macOS：跳过（UPX 不支持）
+
+### 预发布标记
+标签含 `beta` / `alpha` / `rc` → Release 标记为 prerelease
+
+### 本地部署脚本
+- 统一放 `scripts/` 目录
+- 提供 `deploy.sh`（Linux/macOS）+ `deploy-windows.ps1`（Windows）
+- 产物输出到 `bin/` 目录
+
+### CI/CD 流水线触发
+| 事件 | 动作 |
+|------|------|
+| push / PR → main/master/develop | lint → test → build（多平台） |
+| push `v*` 标签 | 上述 + 上传产物 + 创建 Release |
+
+**Rust 项目 CI 顺序**：`cargo fmt` → `cargo clippy` → `cargo test` → `cargo build`（严格串行，前一步失败则终止）
+
+---
+
 > 此文件为个人偏好基线。新项目可按需裁剪/调整，但请先确认差异点。
