@@ -116,3 +116,8 @@ cursor() {
 
 # 自定义脚本目录（避免重复添加）
 [[ ":$PATH:" != *":$HOME/.custom_scripts:"* ]] && export PATH="$HOME/.custom_scripts:$PATH"
+
+. "$HOME/.local/bin/env"
+{{- if eq .chezmoi.os "darwin" }}
+export PATH="/opt/homebrew/opt/node@24/bin:$PATH"
+{{- end }}

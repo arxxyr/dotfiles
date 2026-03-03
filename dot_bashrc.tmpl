@@ -160,3 +160,5 @@ ulimit -c unlimited
 
 # 自定义脚本目录（避免重复添加）
 [[ ":$PATH:" != *":$HOME/.custom_scripts:"* ]] && export PATH="$HOME/.custom_scripts:$PATH"
+
+. "$HOME/.local/bin/env"
