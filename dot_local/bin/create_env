@@ -1,0 +1,10 @@
+#!/bin/sh
+# 占位文件：确保 .zshrc 中 source 不报错
+# uv 安装后会用自己的版本覆盖此文件（chezmoi create_ 语义：仅在不存在时创建）
+case ":${PATH}:" in
+    *:"$HOME/.local/bin":*)
+        ;;
+    *)
+        export PATH="$HOME/.local/bin:$PATH"
+        ;;
+esac
