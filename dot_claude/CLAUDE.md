@@ -656,4 +656,15 @@ package/
 
 ---
 
+## 13. Draw.io（macOS）
+
+```bash
+# 导出 PNG（2x 缩放）
+/Applications/draw.io.app/Contents/MacOS/draw.io -x -f png -s 2 input.drawio
+```
+
+- 默认样式：`rounded=1`、`spacing=15`、边路由 `orthogonal`
+
+---
+
 > 此文件为个人偏好基线。新项目可按需裁剪/调整，但请先确认差异点。
