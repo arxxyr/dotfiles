@@ -10,7 +10,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash /home/loosqk/.claude/statusline-command.sh"
+    "command": "bash {{ .chezmoi.homeDir }}/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true,
