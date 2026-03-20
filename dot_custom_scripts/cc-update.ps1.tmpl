@@ -1,7 +1,6 @@
 {{- if eq .chezmoi.os "windows" -}}
 param(
-    [string]$Proxy = 'http://127.0.0.1:10808',
-    [switch]$IncludeUnknown
+    [string]$Proxy = 'http://127.0.0.1:10808'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,12 +16,9 @@ try {
         'upgrade', '--all',
         '--accept-source-agreements',
         '--accept-package-agreements',
+        '--include-unknown',
         '--proxy', $Proxy
     )
-
-    if ($IncludeUnknown) {
-        $args_list += '--include-unknown'
-    }
 
     Write-Host "[1/2] Upgrading all packages (proxy: $Proxy)..."
     & winget @args_list
