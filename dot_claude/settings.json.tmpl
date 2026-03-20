@@ -10,11 +10,7 @@
   },
   "statusLine": {
     "type": "command",
-{{- if eq .chezmoi.os "windows" }}
-    "command": "powershell -NoProfile -File {{ .chezmoi.homeDir | replace "\\" "/" }}/.claude/statusline-command.ps1"
-{{- else }}
-    "command": "bash {{ .chezmoi.homeDir }}/.claude/statusline-command.sh"
-{{- end }}
+    "command": "bash {{ .chezmoi.homeDir | replace "\\" "/" }}/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true,

@@ -1,18 +1,27 @@
 #!/usr/bin/env bash
-# ~/.claude/statusline-command.sh
 # 基于 oh-my-zsh robbyrussell 主题风格的 Claude Code 状态栏
 # robbyrussell: ➜  <basename> git:(branch) ✗
 
 input=$(cat)
 
-# --- 目录信息 ---
-cwd=$(echo "$input" | jq -r '.cwd // .workspace.current_dir // ""')
-dir_name=$(basename "$cwd")
+# --- 简易 JSON 提取（无需 jq）---
+# 提取字符串值: "key": "value"
+json_str() {
+    echo "$input" | grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 | sed 's/.*:[[:space:]]*"\(.*\)"/\1/'
+}
+# 提取数字值: "key": 123.45
+json_num() {
+    echo "$input" | grep -o "\"$1\"[[:space:]]*:[[:space:]]*[0-9.]*" | head -1 | sed 's/.*:[[:space:]]*//'
+}
 
-# --- Git 信息（跳过可选锁，失败静默）---
+# --- 目录信息 ---
+cwd=$(json_str 'cwd')
+dir_name=$(basename "$cwd" 2>/dev/null)
+
+# --- Git 信息 ---
 git_branch=""
 git_dirty=""
-if git -C "$cwd" rev-parse --is-inside-work-tree --no-optional-locks >/dev/null 2>&1; then
+if [ -n "$cwd" ] && git -C "$cwd" rev-parse --is-inside-work-tree --no-optional-locks >/dev/null 2>&1; then
     git_branch=$(git -C "$cwd" symbolic-ref --short HEAD --no-optional-locks 2>/dev/null \
                  || git -C "$cwd" rev-parse --short HEAD --no-optional-locks 2>/dev/null)
     if ! git -C "$cwd" diff --quiet --no-optional-locks 2>/dev/null || \
@@ -22,11 +31,10 @@ if git -C "$cwd" rev-parse --is-inside-work-tree --no-optional-locks >/dev/null 
 fi
 
 # --- Claude 会话信息 ---
-model=$(echo "$input" | jq -r '.model.display_name // ""')
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+model=$(json_str 'display_name')
+used_pct=$(json_num 'used_percentage')
 
-# --- 组装输出 ---
-# 颜色定义（ANSI）
+# --- 颜色定义 ---
 RESET='\033[0m'
 BOLD='\033[1m'
 RED='\033[31m'
@@ -35,18 +43,18 @@ YELLOW='\033[33m'
 BLUE='\033[34m'
 CYAN='\033[36m'
 
-# 箭头：有上下文用量时根据用量着色（>80% 红，>50% 黄，否则绿）
+# 箭头颜色：>80% 红，>50% 黄，否则绿
 arrow_color="$GREEN"
 if [ -n "$used_pct" ]; then
-    pct_int=$(printf '%.0f' "$used_pct")
-    if [ "$pct_int" -ge 80 ]; then
+    pct_int=$(printf '%.0f' "$used_pct" 2>/dev/null)
+    if [ "${pct_int:-0}" -ge 80 ] 2>/dev/null; then
         arrow_color="$RED"
-    elif [ "$pct_int" -ge 50 ]; then
+    elif [ "${pct_int:-0}" -ge 50 ] 2>/dev/null; then
         arrow_color="$YELLOW"
     fi
 fi
 
-# 构建各段
+# --- 构建各段 ---
 part_arrow=$(printf "${BOLD}${arrow_color}➜${RESET}")
 part_dir=$(printf "  ${BOLD}${CYAN}%s${RESET}" "$dir_name")
 
@@ -66,8 +74,8 @@ fi
 
 part_ctx=""
 if [ -n "$used_pct" ]; then
-    pct_int=$(printf '%.0f' "$used_pct")
-    part_ctx=$(printf "  ctx:%s%d%%%s" "$arrow_color" "$pct_int" "$RESET")
+    pct_int=$(printf '%.0f' "$used_pct" 2>/dev/null)
+    part_ctx=$(printf "  ctx:%s%d%%%s" "$arrow_color" "${pct_int:-0}" "$RESET")
 fi
 
 printf "%b%b%b%b%b\n" \
