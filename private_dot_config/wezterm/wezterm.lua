@@ -134,6 +134,11 @@ config.keys = {
       window:active_tab():set_title(line)
     end),
   }},
+  -- 分屏切换（iTerm2 风格）
+  { key = 'LeftArrow', mods = 'CMD|OPT', action = action.ActivatePaneDirection 'Left' },
+  { key = 'RightArrow', mods = 'CMD|OPT', action = action.ActivatePaneDirection 'Right' },
+  { key = 'UpArrow', mods = 'CMD|OPT', action = action.ActivatePaneDirection 'Up' },
+  { key = 'DownArrow', mods = 'CMD|OPT', action = action.ActivatePaneDirection 'Down' },
 }
 
 -- 鼠标绑定
