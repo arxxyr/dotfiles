@@ -163,6 +163,7 @@ dotfiles/
 ├── private_dot_config/              # ~/.config/ contents
 ├── dot_custom_scripts/              # Cross-platform scripts (.tmpl)
 ├── .chezmoiignore.tmpl              # OS-specific file filtering
+├── run_once_darwin_setup.sh.tmpl    # First-run setup (macOS)
 ├── run_once_linux_setup.sh.tmpl     # First-run setup (Linux)
 └── run_once_windows_setup.ps1.tmpl  # First-run setup (Windows)
 ```

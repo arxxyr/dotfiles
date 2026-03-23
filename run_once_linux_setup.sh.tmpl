@@ -1,7 +1,118 @@
 {{- if eq .chezmoi.os "linux" -}}
 #!/bin/bash
-mkdir -p ~/.config/chezmoi
+set -e
 
+# 安装必要工具
+if command -v apt &>/dev/null; then
+    PACKAGES=(
+        zoxide
+        zsh
+        fzf
+        ripgrep
+        ranger
+        btop
+        jq
+        wget
+        connect-proxy
+        proxychains4
+        software-properties-common
+    )
+
+    MISSING=()
+    for pkg in "${PACKAGES[@]}"; do
+        if ! dpkg -s "$pkg" &>/dev/null; then
+            MISSING+=("$pkg")
+        fi
+    done
+
+    if [[ ${#MISSING[@]} -gt 0 ]]; then
+        echo "[INSTALL] ${MISSING[*]}"
+        sudo apt update -y
+        sudo apt install -y "${MISSING[@]}"
+    else
+        echo "[SKIP] All packages already installed"
+    fi
+
+    # Neovim nightly（unstable PPA）
+    if command -v nvim &>/dev/null && nvim --version 2>/dev/null | head -1 | grep -q 'dev'; then
+        echo "[SKIP] neovim (nightly) already installed"
+    else
+        echo "[INSTALL] neovim (unstable PPA)..."
+        sudo add-apt-repository -y ppa:neovim-ppa/unstable
+        sudo apt update -y
+        sudo apt install -y neovim
+    fi
+
+elif command -v pacman &>/dev/null; then
+    PACKAGES=(
+        zoxide
+        zsh
+        fzf
+        ripgrep
+        ranger
+        btop
+        jq
+        wget
+        connect-proxy
+        proxychains-ng
+    )
+
+    MISSING=()
+    for pkg in "${PACKAGES[@]}"; do
+        if ! pacman -Qi "$pkg" &>/dev/null; then
+            MISSING+=("$pkg")
+        fi
+    done
+
+    if [[ ${#MISSING[@]} -gt 0 ]]; then
+        echo "[INSTALL] ${MISSING[*]}"
+        sudo pacman -S --noconfirm "${MISSING[@]}"
+    else
+        echo "[SKIP] All packages already installed"
+    fi
+
+    # Neovim nightly（neovim-nightly-bin from AUR）
+    if command -v nvim &>/dev/null && nvim --version 2>/dev/null | head -1 | grep -q 'dev'; then
+        echo "[SKIP] neovim (nightly) already installed"
+    else
+        echo "[INSTALL] neovim-nightly-bin (AUR)..."
+        if command -v yay &>/dev/null; then
+            yay -S --noconfirm neovim-nightly-bin
+        elif command -v paru &>/dev/null; then
+            paru -S --noconfirm neovim-nightly-bin
+        else
+            echo "[WARN] 需要 yay 或 paru 安装 AUR 包"
+        fi
+    fi
+fi
+
+# Oh My Zsh
+if [[ -d "$HOME/.oh-my-zsh" ]]; then
+    echo "[SKIP] Oh My Zsh already installed"
+else
+    echo "[INSTALL] Oh My Zsh..."
+    RUNZSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+fi
+
+# Zsh 插件（oh-my-zsh custom plugins）
+ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+declare -A ZSH_PLUGINS=(
+    [zsh-syntax-highlighting]="https://github.com/zsh-users/zsh-syntax-highlighting"
+    [zsh-autosuggestions]="https://github.com/zsh-users/zsh-autosuggestions"
+    [zsh-completions]="https://github.com/zsh-users/zsh-completions"
+)
+
+for plugin in "${!ZSH_PLUGINS[@]}"; do
+    if [[ -d "$ZSH_CUSTOM/plugins/$plugin" ]]; then
+        echo "[SKIP] $plugin already installed"
+    else
+        echo "[INSTALL] $plugin..."
+        git clone "${ZSH_PLUGINS[$plugin]}" "$ZSH_CUSTOM/plugins/$plugin"
+    fi
+done
+
+# chezmoi auto commit/push
+mkdir -p ~/.config/chezmoi
 if ! grep -q "autoCommit" ~/.config/chezmoi/chezmoi.toml 2>/dev/null; then
     cat >> ~/.config/chezmoi/chezmoi.toml << 'EOF'
 [git]
@@ -10,6 +121,8 @@ if ! grep -q "autoCommit" ~/.config/chezmoi/chezmoi.toml 2>/dev/null; then
 EOF
     echo "[OK] chezmoi auto commit/push enabled"
 else
-    echo "[SKIP] already configured"
+    echo "[SKIP] chezmoi already configured"
 fi
+
+echo "[DONE] Linux setup complete"
 {{ end -}}

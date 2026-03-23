@@ -5,20 +5,60 @@ PROXY="${1:-http://127.0.0.1:10808}"
 
 case "${1:-on}" in
 off)
-unset HTTP_PROXY HTTPS_PROXY ALL_PROXY
-echo "[OK] Proxy disabled"
-;;
+    # 环境变量
+    unset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY
+    unset GIT_SSH_COMMAND
+
+    # Git 全局配置
+    git config --global --unset http.proxy 2>/dev/null
+    git config --global --unset https.proxy 2>/dev/null
+
+    echo "[OK] Proxy disabled"
+    ;;
 *)
-[[ "$1" == "on" ]] && PROXY="http://127.0.0.1:10808" || PROXY="${1:-http://127.0.0.1:10808}"
-export HTTP_PROXY="$PROXY"
-export HTTPS_PROXY="$PROXY"
-export ALL_PROXY="$PROXY"
-export NO_PROXY="localhost,127.0.0.1,::1,.local"
-echo "[OK] Proxy set to $PROXY"
-;;
+    [[ "$1" == "on" ]] && PROXY="http://127.0.0.1:10808" || PROXY="${1:-http://127.0.0.1:10808}"
+
+    # 环境变量
+    export HTTP_PROXY="$PROXY"
+    export HTTPS_PROXY="$PROXY"
+    export ALL_PROXY="$PROXY"
+    export NO_PROXY="localhost,127.0.0.1,::1,.local"
+
+    # Git HTTP/HTTPS 代理
+    git config --global http.proxy "$PROXY"
+    git config --global https.proxy "$PROXY"
+
+    # Git SSH 代理 — 解析代理地址
+    _cc_tmp="${PROXY#*://}"
+    _cc_tmp="${_cc_tmp%%/*}"
+    _cc_port="${_cc_tmp##*:}"
+    _cc_host="${_cc_tmp%%:*}"
+
+    if command -v connect &>/dev/null; then
+        # connect（brew install connect）— 最可靠
+        export GIT_SSH_COMMAND="ssh -o ProxyCommand='connect -H ${_cc_host}:${_cc_port} %h %p'"
+    elif command -v ncat &>/dev/null; then
+        # nmap ncat
+        export GIT_SSH_COMMAND="ssh -o ProxyCommand='ncat --proxy-type http --proxy ${_cc_host}:${_cc_port} %h %p'"
+    elif command -v connect-proxy &>/dev/null; then
+        # connect-proxy
+        export GIT_SSH_COMMAND="ssh -o ProxyCommand='connect-proxy -H ${_cc_host}:${_cc_port} %h %p'"
+    elif nc -h 2>&1 | grep -q -- '-X'; then
+        # macOS nc / openbsd-netcat — 部分代理有兼容问题
+        export GIT_SSH_COMMAND="ssh -o ProxyCommand='nc -X connect -x ${_cc_host}:${_cc_port} %h %p'"
+    else
+        echo "[WARN] 未找到 SSH 代理工具（需要 connect / ncat / connect-proxy）"
+    fi
+
+    unset _cc_tmp _cc_port _cc_host
+    echo "[OK] Proxy set to $PROXY"
+    ;;
 esac
 
-echo " HTTP_PROXY = ${HTTP_PROXY:-<unset>}"
+echo " HTTP_PROXY  = ${HTTP_PROXY:-<unset>}"
 echo " HTTPS_PROXY = ${HTTPS_PROXY:-<unset>}"
-echo " ALL_PROXY = ${ALL_PROXY:-<unset>}"
+echo " ALL_PROXY   = ${ALL_PROXY:-<unset>}"
+echo " Git HTTP    = $(git config --global --get http.proxy 2>/dev/null || echo '<unset>')"
+echo " Git HTTPS   = $(git config --global --get https.proxy 2>/dev/null || echo '<unset>')"
+echo " Git SSH     = ${GIT_SSH_COMMAND:-<unset>}"
 {{ end -}}

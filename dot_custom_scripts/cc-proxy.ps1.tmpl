@@ -1,29 +1,64 @@
 {{- if eq .chezmoi.os "windows" -}}
 param(
-[Parameter(Position=0)]
-[string]$Action = 'on',
+    [Parameter(Position=0)]
+    [string]$Action = 'on',
 
-[string]$Proxy = 'http://127.0.0.1:10808'
+    [string]$Proxy = 'http://127.0.0.1:10808'
 )
 
 switch ($Action) {
-'off' {
-Remove-Item Env:\HTTP_PROXY -ErrorAction SilentlyContinue
-Remove-Item Env:\HTTPS_PROXY -ErrorAction SilentlyContinue
-Remove-Item Env:\ALL_PROXY -ErrorAction SilentlyContinue
-Write-Host "[OK] Proxy disabled"
-}
-default {
-if ($Action -ne 'on') { $Proxy = $Action }
-$env:HTTP_PROXY = $Proxy
-$env:HTTPS_PROXY = $Proxy
-$env:ALL_PROXY = $Proxy
-$env:NO_PROXY = 'localhost,127.0.0.1,::1,.local'
-Write-Host "[OK] Proxy set to $Proxy"
-}
+    'off' {
+        # 环境变量
+        Remove-Item Env:\HTTP_PROXY -ErrorAction SilentlyContinue
+        Remove-Item Env:\HTTPS_PROXY -ErrorAction SilentlyContinue
+        Remove-Item Env:\ALL_PROXY -ErrorAction SilentlyContinue
+        Remove-Item Env:\NO_PROXY -ErrorAction SilentlyContinue
+        Remove-Item Env:\GIT_SSH_COMMAND -ErrorAction SilentlyContinue
+
+        # Git 全局配置
+        git config --global --unset http.proxy 2>$null
+        git config --global --unset https.proxy 2>$null
+
+        Write-Host "[OK] Proxy disabled"
+    }
+    default {
+        if ($Action -ne 'on') { $Proxy = $Action }
+
+        # 环境变量
+        $env:HTTP_PROXY = $Proxy
+        $env:HTTPS_PROXY = $Proxy
+        $env:ALL_PROXY = $Proxy
+        $env:NO_PROXY = 'localhost,127.0.0.1,::1,.local'
+
+        # Git HTTP/HTTPS 代理
+        git config --global http.proxy $Proxy
+        git config --global https.proxy $Proxy
+
+        # Git SSH 代理 — 解析代理地址
+        $uri = [System.Uri]$Proxy
+        $ProxyHost = $uri.Host
+        $ProxyPort = $uri.Port
+
+        # 优先使用 Git for Windows 自带的 connect.exe
+        $ConnectExe = Join-Path $env:ProgramFiles 'Git\mingw64\bin\connect.exe'
+        if (Test-Path $ConnectExe) {
+            $env:GIT_SSH_COMMAND = "ssh -o ProxyCommand=""'$ConnectExe' -H ${ProxyHost}:${ProxyPort} %h %p"""
+        } elseif (Get-Command ncat -ErrorAction SilentlyContinue) {
+            $env:GIT_SSH_COMMAND = "ssh -o ProxyCommand=""ncat --proxy-type http --proxy ${ProxyHost}:${ProxyPort} %h %p"""
+        } else {
+            Write-Host "[WARN] 未找到 SSH 代理工具（需要 connect.exe / ncat）"
+        }
+
+        Write-Host "[OK] Proxy set to $Proxy"
+    }
 }
 
-Write-Host " HTTP_PROXY = $($env:HTTP_PROXY ?? '<unset>')"
+Write-Host " HTTP_PROXY  = $($env:HTTP_PROXY ?? '<unset>')"
 Write-Host " HTTPS_PROXY = $($env:HTTPS_PROXY ?? '<unset>')"
-Write-Host " ALL_PROXY = $($env:ALL_PROXY ?? '<unset>')"
+Write-Host " ALL_PROXY   = $($env:ALL_PROXY ?? '<unset>')"
+$gitHttp = git config --global --get http.proxy 2>$null
+$gitHttps = git config --global --get https.proxy 2>$null
+Write-Host " Git HTTP    = $(if ($gitHttp) { $gitHttp } else { '<unset>' })"
+Write-Host " Git HTTPS   = $(if ($gitHttps) { $gitHttps } else { '<unset>' })"
+Write-Host " Git SSH     = $($env:GIT_SSH_COMMAND ?? '<unset>')"
 {{ end -}}

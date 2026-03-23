@@ -13,13 +13,17 @@ fi
 
 # 安装必要工具
 PACKAGES=(
-    neovim
     zoxide
-    zsh-syntax-highlighting
-    zsh-autosuggestions
-    zsh-completions
     bash-completion
     xmake
+    connect
+    proxychains-ng
+    fzf
+    ripgrep
+    ranger
+    btop
+    jq
+    wget
 )
 
 for pkg in "${PACKAGES[@]}"; do
@@ -28,6 +32,39 @@ for pkg in "${PACKAGES[@]}"; do
     else
         echo "[INSTALL] $pkg..."
         brew install "$pkg"
+    fi
+done
+
+# Neovim nightly（--HEAD 从 git 源码构建）
+if brew list --head neovim &>/dev/null 2>&1; then
+    echo "[SKIP] neovim (HEAD) already installed"
+else
+    echo "[INSTALL] neovim --HEAD..."
+    brew install --HEAD neovim
+fi
+
+# Oh My Zsh
+if [[ -d "$HOME/.oh-my-zsh" ]]; then
+    echo "[SKIP] Oh My Zsh already installed"
+else
+    echo "[INSTALL] Oh My Zsh..."
+    RUNZSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+fi
+
+# Zsh 插件（oh-my-zsh custom plugins）
+ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+declare -A ZSH_PLUGINS=(
+    [zsh-syntax-highlighting]="https://github.com/zsh-users/zsh-syntax-highlighting"
+    [zsh-autosuggestions]="https://github.com/zsh-users/zsh-autosuggestions"
+    [zsh-completions]="https://github.com/zsh-users/zsh-completions"
+)
+
+for plugin in "${!ZSH_PLUGINS[@]}"; do
+    if [[ -d "$ZSH_CUSTOM/plugins/$plugin" ]]; then
+        echo "[SKIP] $plugin already installed"
+    else
+        echo "[INSTALL] $plugin..."
+        git clone "${ZSH_PLUGINS[$plugin]}" "$ZSH_CUSTOM/plugins/$plugin"
     fi
 done
 
