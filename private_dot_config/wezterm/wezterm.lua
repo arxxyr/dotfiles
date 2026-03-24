@@ -61,33 +61,27 @@ config.default_gui_startup_args = { 'connect', 'unix' }
 config.window_close_confirmation = 'NeverPrompt'
 
 -- 窗口最大化
-local function maximize_window(window)
-  if not window.gui_window then return end
-
-  local screen = wezterm.gui.screens().active
-  local guiwin = window:gui_window()
-  if not screen or not guiwin then return end
-
-  guiwin:set_position(screen.x, screen.y)
-  guiwin:set_inner_size(screen.width, screen.height)
-end
-
 wezterm.on("gui-startup", function(cmd)
   local tab, pane, window = mux.spawn_window(cmd or {})
-  maximize_window(window)
-end)
-
-wezterm.on("gui-attached", function(domain)
-  local workspace = mux.get_active_workspace()
-  for _, window in ipairs(mux.all_windows()) do
-    if window:get_workspace() == workspace then
-      maximize_window(window)
-    end
+  local guiwin = window:gui_window()
+  if guiwin then
+    guiwin:maximize()
   end
 end)
 
-wezterm.on("window-resized", function(window, pane)
-  maximize_window(window)
+wezterm.on("gui-attached", function(domain)
+  -- connect unix 模式下 gui_window() 可能还没就绪，延迟执行
+  wezterm.time.call_after(0.1, function()
+    local workspace = mux.get_active_workspace()
+    for _, window in ipairs(mux.all_windows()) do
+      if window:get_workspace() == workspace then
+        local guiwin = window:gui_window()
+        if guiwin then
+          guiwin:maximize()
+        end
+      end
+    end
+  end)
 end)
 
 -- Tab 标题格式
