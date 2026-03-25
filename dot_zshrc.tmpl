@@ -1,77 +1,29 @@
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# ~/.zshrc — zsh 交互式 shell 配置
+
+# p10k instant prompt（必须在最顶部）
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+    source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
-{{- if eq .chezmoi.os "darwin" }}
+# 确保环境变量已加载（非登录 shell 场景）
+[[ -z "$SHELL_PROFILE_LOADED" && -f "$HOME/.config/shell/profile.sh" ]] && source "$HOME/.config/shell/profile.sh"
 
-# Homebrew (Apple Silicon)
-eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null)" || eval "$(/usr/local/bin/brew shellenv 2>/dev/null)"
-{{- end }}
-
-# Path to your oh-my-zsh installation.
+# oh-my-zsh
 export ZSH="$HOME/.oh-my-zsh"
-
 ZSH_THEME="robbyrussell"
 #ZSH_THEME="powerlevel10k/powerlevel10k"
-
 zstyle ':omz:update' mode auto
-
 plugins=(git sudo kubectl history emoji encode64 web-search copypath copyfile copybuffer dirhistory jsontools zsh-syntax-highlighting zsh-autosuggestions zsh-completions)
-
 source $ZSH/oh-my-zsh.sh
 
-# aliases
-alias vi='nvim'
-alias vim='nvim'
-alias cc-proxy='source cc-proxy'
-
-{{- if eq .chezmoi.os "darwin" }}
-# eza replaces ls (macOS)
-alias ls='eza --icons'
-alias ll='eza -l --icons --git'
-alias la='eza -la --icons --git'
-alias lt='eza --tree --icons --level=2'
-alias grep='grep --color=auto'
-{{- else }}
-alias ls='eza --icons'
-alias ll='eza -l --icons --git'
-alias la='eza -la --icons --git'
-alias lt='eza --tree --icons --level=2'
-alias grep='grep --color=auto'
-alias diff='diff --color=auto'
-{{- if eq .chezmoi.os "linux" }}
-alias ip='ip -color=auto'
-{{- end }}
-{{- end }}
+# 共享别名与函数
+[[ -f "$HOME/.config/shell/aliases.sh" ]] && source "$HOME/.config/shell/aliases.sh"
+[[ -f "$HOME/.config/shell/functions.sh" ]] && source "$HOME/.config/shell/functions.sh"
 
 autoload -U compinit && compinit
 
-# rust
-export PATH=$PATH:$HOME/.cargo/bin
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+# p10k
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-{{- if ne .chezmoi.os "darwin" }}
-
-# goproxy（macOS 除外）
-export GOPROXY=https://proxy.golang.com.cn,direct
-{{- end }}
-
-# ruby
-export PATH=$PATH:$HOME/.rbenv/bin
-
-# local bin
-export PATH=$PATH:$HOME/.local/bin
-
-# nvm
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-# rvm
-export PATH="$PATH:$HOME/.rvm/bin"
 
 # >>> conda initialize >>>
 __conda_setup="$('$HOME/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
@@ -87,18 +39,7 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
-# >>> xmake >>>
-[[ -s "$HOME/.xmake/profile" ]] && source "$HOME/.xmake/profile"
-# <<< xmake <<<
-
-{{- if eq .chezmoi.os "linux" }}
-
-# CUDA
-export PATH=/usr/local/cuda/bin${PATH:+:${PATH}}
-{{- end }}
-
 # zoxide
-export PATH="$HOME/.local/bin:$PATH"
 eval "$(zoxide init zsh)"
 
 # fzf
@@ -108,23 +49,4 @@ source <(fzf --zsh)
 
 # ROS2
 source /opt/ros/humble/setup.zsh
-
-# rviz2
-export QT_AUTO_SCREEN_SCALE_FACTOR=0
-
-# Cursor AppImage
-cursor() {
-    nohup env all_proxy="socks5://127.0.0.1:10808" \
-        ~/Cursor-x86_64.AppImage \
-        >/dev/null 2>&1 &
-    disown
-}
-{{- end }}
-
-# 自定义脚本目录（避免重复添加）
-[[ ":$PATH:" != *":$HOME/.custom_scripts:"* ]] && export PATH="$HOME/.custom_scripts:$PATH"
-
-. "$HOME/.local/bin/env"
-{{- if eq .chezmoi.os "darwin" }}
-export PATH="/opt/homebrew/opt/node@24/bin:$PATH"
 {{- end }}

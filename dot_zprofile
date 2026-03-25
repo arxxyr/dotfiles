@@ -1,0 +1,4 @@
+# ~/.zprofile — zsh 登录 shell 入口
+
+# 共享环境变量
+[[ -f "$HOME/.config/shell/profile.sh" ]] && source "$HOME/.config/shell/profile.sh"

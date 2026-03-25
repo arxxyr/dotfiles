@@ -1,0 +1,7 @@
+# ~/.profile — bash 登录 shell 入口
+
+# 共享环境变量
+[ -f "$HOME/.config/shell/profile.sh" ] && . "$HOME/.config/shell/profile.sh"
+
+# bash 登录 shell 不自动 source .bashrc，手动加载
+[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"

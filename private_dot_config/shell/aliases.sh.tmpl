@@ -1,0 +1,26 @@
+# ~/.config/shell/aliases.sh — 共享别名，交互式 shell 加载
+# 由 .bashrc 和 .zshrc source
+
+# 编辑器
+alias vi='nvim'
+alias vim='nvim'
+
+# 代理
+alias cc-proxy='source cc-proxy'
+
+# eza（覆盖 shell 默认的 ls 别名，不可用时回退到各 shell 自己的定义）
+if command -v eza >/dev/null 2>&1; then
+    alias ls='eza --icons'
+    alias ll='eza -l --icons --git'
+    alias la='eza -la --icons --git'
+    alias lt='eza --tree --icons --level=2'
+fi
+
+# 颜色
+alias grep='grep --color=auto'
+{{- if ne .chezmoi.os "darwin" }}
+alias diff='diff --color=auto'
+{{- end }}
+{{- if eq .chezmoi.os "linux" }}
+alias ip='ip -color=auto'
+{{- end }}
