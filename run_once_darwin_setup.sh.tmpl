@@ -53,18 +53,19 @@ fi
 
 # Zsh 插件（oh-my-zsh custom plugins）
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-declare -A ZSH_PLUGINS=(
-    [zsh-syntax-highlighting]="https://github.com/zsh-users/zsh-syntax-highlighting"
-    [zsh-autosuggestions]="https://github.com/zsh-users/zsh-autosuggestions"
-    [zsh-completions]="https://github.com/zsh-users/zsh-completions"
-)
+ZSH_PLUGINS="
+zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting
+zsh-autosuggestions https://github.com/zsh-users/zsh-autosuggestions
+zsh-completions https://github.com/zsh-users/zsh-completions
+"
 
-for plugin in "${!ZSH_PLUGINS[@]}"; do
+echo "$ZSH_PLUGINS" | while read -r plugin url; do
+    [[ -z "$plugin" ]] && continue
     if [[ -d "$ZSH_CUSTOM/plugins/$plugin" ]]; then
         echo "[SKIP] $plugin already installed"
     else
         echo "[INSTALL] $plugin..."
-        git clone "${ZSH_PLUGINS[$plugin]}" "$ZSH_CUSTOM/plugins/$plugin"
+        git clone "$url" "$ZSH_CUSTOM/plugins/$plugin"
     fi
 done
 
