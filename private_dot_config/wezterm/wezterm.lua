@@ -50,11 +50,11 @@ config.default_cursor_style = 'BlinkingBar'
 config.animation_fps = 1
 config.cursor_blink_rate = 500
 config.prefer_egl = true
-config.max_fps = 60
+config.max_fps = 120
 
 -- 滚动
 config.enable_scroll_bar = true
-config.scrollback_lines = 10000
+config.scrollback_lines = 3500
 
 -- 类 tmux 会话持久化
 config.default_gui_startup_args = { 'connect', 'unix' }

@@ -16,6 +16,12 @@ if command -v eza >/dev/null 2>&1; then
     alias lt='eza --tree --icons --level=2'
 fi
 
+# ripgrep（文件内容搜索用 rg，管道过滤继续用 grep）
+if command -v rg >/dev/null 2>&1; then
+    alias rg='rg --smart-case --max-columns 200 --max-columns-preview'
+    alias rgl='rg --smart-case --max-columns 200 --max-columns-preview -p | less -RFX'
+fi
+
 # 颜色
 alias grep='grep --color=auto'
 {{- if ne .chezmoi.os "darwin" }}
