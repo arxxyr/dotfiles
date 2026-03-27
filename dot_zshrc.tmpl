@@ -43,7 +43,13 @@ unset __conda_setup
 eval "$(zoxide init zsh)"
 
 # fzf
-source <(fzf --zsh)
+if command -v fzf >/dev/null 2>&1; then
+  if fzf --zsh >/dev/null 2>&1; then
+    source <(fzf --zsh)
+  elif [ -f "${HOME}/.fzf.zsh" ]; then
+    source "${HOME}/.fzf.zsh"
+  fi
+fi
 
 {{- if eq .chezmoi.os "linux" }}
 
