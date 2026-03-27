@@ -5,21 +5,24 @@ local config = wezterm.config_builder()
 local action = wezterm.action
 local mux = wezterm.mux
 
+{{- if eq .chezmoi.os "darwin" }}
+
 -- 环境变量
 config.set_environment_variables = {
   PATH = '/opt/homebrew/bin:/usr/local/bin/:' .. os.getenv('PATH')
 }
+{{- end }}
 
 config.audible_bell = "Disabled"
 config.enable_wayland = false
 
--- 字体（保留原有配置）
+-- 字体
 config.font = wezterm.font("JetBrainsMono NF")
 config.font_size = 12.0
 config.line_height = 1.0
 config.bold_brightens_ansi_colors = true
 
--- 主题（保留原有配置）
+-- 主题
 local function scheme_for_appearance(appearance)
   if appearance:find("Dark") then
     return "Catppuccin Macchiato"
@@ -33,10 +36,15 @@ if wezterm.gui then
 end
 
 -- 窗口
+{{- if eq .chezmoi.os "darwin" }}
 config.macos_window_background_blur = 20
-config.window_background_opacity = 0.96
 config.window_decorations = 'RESIZE|INTEGRATED_BUTTONS'
 config.window_padding = { left = '0.5cell', right = '0.5cell', top = '1.5cell', bottom = '0.5cell' }
+{{- else }}
+config.window_decorations = 'RESIZE'
+config.window_padding = { left = '0.5cell', right = '0.5cell', top = '0.5cell', bottom = '0.5cell' }
+{{- end }}
+config.window_background_opacity = 0.96
 
 -- Tab 栏
 config.enable_tab_bar = true
@@ -142,7 +150,7 @@ config.mouse_bindings = {
   { event = { Drag = { streak = 1, button = "Left" } }, mods = "CMD", action = action.ExtendSelectionToMouseCursor("Cell") },
 }
 
--- 超链接规则：识别文件路径，CMD+Click 在 VS Code 打开
+-- 超链接规则：识别文件路径，点击在 VS Code 打开
 local function path_exists(path)
   local ok, _, _ = wezterm.run_child_process { "test", "-e", path }
   return ok
