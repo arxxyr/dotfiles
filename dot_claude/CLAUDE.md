@@ -102,6 +102,10 @@ mimalloc = { version = "0.1", default-features = false }
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 ```
 
+### 控制流
+- 多分支判断优先用 `match`，避免 if-else 链
+- 枚举、行为分发、元素/类型区分等场景强制 `match`
+
 ### 提交前检查（必须在 commit 之前执行）
 ```bash
 cargo fmt --all && cargo clippy --all --all-targets
