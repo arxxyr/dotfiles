@@ -108,7 +108,7 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 ### 提交前检查（必须在 commit 之前执行）
 ```bash
-cargo fmt --all && cargo clippy --all --all-targets
+cargo fmt --all && cargo clippy --all --all-targets -- -D warnings
 ```
 > **强制规则**：每次 `git commit` 前必须先跑 `fmt` + `clippy`，确保零警告后再提交。
 
