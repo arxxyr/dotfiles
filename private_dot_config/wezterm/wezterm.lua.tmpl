@@ -31,6 +31,9 @@ local function scheme_for_appearance(appearance)
   end
 end
 
+-- 默认深色主题（connect unix 模式下 mux 进程无 GUI，wezterm.gui 为 nil）
+config.color_scheme = "Catppuccin Macchiato"
+
 if wezterm.gui then
   config.color_scheme = scheme_for_appearance(wezterm.gui.get_appearance())
 end
