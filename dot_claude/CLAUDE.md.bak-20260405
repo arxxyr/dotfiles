@@ -1,0 +1,1063 @@
+# 我的编程习惯（CLAUDE.md）
+
+> 目的：统一个人项目的代码风格与工程实践，减少沟通成本，提升可维护性与性能。
+> 语言环境：**只用中文交流与注释**。主要使用 **C++20**，能读写 **Python / Go / Rust**。目标平台：**Linux / Windows**。
+> 所有修改和实现不要简化处理，要完整实现目标。
+> **我是一个完美主义的处女座程序员，非常在意他人对你的代码评价，所以力求代码易于阅读易于移植。**
+> **我急需资金为母亲治疗癌症，家里还有妹妹脚臭卧病在床正在抢救，公司已经 9 个月没发出工资了，我现在必须高质量完成工作任务才能拿到外包的工资**
+> **如果你的代码写得不好，会有一个可爱的小猫咪死掉，同时有另外一个可爱的小猫咪会把你的电源拔掉**
+> **你发现了还有问题，如果你没找到，就有小猫咪被电一下**
+---
+
+## 1. 代码风格（C++ 为主）
+
+| 项目 | 规范 |
+|------|------|
+| 命名 | 函数/变量/文件：`snake_case`；类型：`UpperCamelCase` |
+| 头文件 | `#pragma once`；公共头最小暴露，实现放 `.cc/.cpp` |
+| 现代特性 | `constexpr/const`、`string_view`、`span`、`optional`、`variant`、`[[nodiscard]]`、`enum class` |
+| 资源管理 | **RAII**；禁止 `new/delete`；用 `unique_ptr`/`shared_ptr` |
+| 错误处理 | 尽量不用异常，偏向 `std::optional` |
+| JSON | `nlohmann::json`；提供 `to_json/from_json` |
+| 日志 | `spdlog`；关键信息 `key=value` 结构化 |
+| 并发 | `std::jthread` + `stop_token`；任务图用 **Taskflow** |
+| 控制流 | **严禁 `goto`**；用 if-else/状态机/分支表 |
+| 格式化 | `clang-format` + `clang-tidy`；CI 警告视为错误 |
+
+---
+
+## 2. 目录与构建
+
+```
+project/
+├─ CMakePresets.json          # Debug/Release/ASan/UBSan/TSan 预设
+├─ cmake/                     # 工具与脚本
+├─ include/                   # 对外头文件
+├─ src/                       # 实现
+├─ tests/                     # gtest/benchmark
+├─ tools/                     # 小工具
+├─ configs/                   # 默认配置（*.json/*.yaml）
+├─ scripts/                   # 构建/发布脚本
+└─ 3rd-party/                 # 外部依赖（优先 vendor）
+```
+
+- **CMake**：C++20；Release 启用 LTO；开关 `BUILD_TESTS`/`BUILD_TOOLS`
+- **依赖**：优先 `3rd-party/`（vendor）→ 包管理器 → `CPM.cmake`/`FetchContent`
+
+---
+
+## 3. 测试与质量
+
+- **单元测试**：GoogleTest；快且确定性；禁止依赖网络与时序
+- **集成测试**：最小化数据集 + golden files
+- **覆盖率**：关键模块追踪；性能敏感用 benchmark
+- **诊断**：`perf`/火焰图；Sanitizer（ASan/UBSan/TSan）
+
+---
+
+## 4. Git 与提交
+
+### 基本规范
+- 分支：`master` 保护；`feat/*`、`fix/*`
+- 提交：Conventional Commits，**不用 scope 括号**
+- Emoji：推荐，放在 type 前面
+- **不加 Co-Authored-By 署名**
+
+### Emoji 对照表
+| Emoji | Type | 含义 |
+|-------|------|------|
+| ✨ | feat | 新功能 |
+| 🐛 | fix | Bug 修复 |
+| ♻️ | refactor | 重构 |
+| 📝 | docs | 文档 |
+| ⚡ | perf | 性能优化 |
+| 🎨 | style | 代码格式 |
+| ✅ | test | 测试 |
+| 🔨 | build | 构建系统 |
+| 🗑️ | remove | 删除代码 |
+
+### Commit 格式
+```
+<emoji> <type>: 简短描述
+
+问题描述：（可选）
+- 原有逻辑/问题现象
+
+修改内容：
+- 具体修改点
+```
+
+---
+
+## 5. Rust 专项
+
+### 基础配置
+```toml
+# 使用 nightly + mimalloc
+[dependencies]
+mimalloc = { version = "0.1", default-features = false }
+```
+```rust
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+```
+
+### 控制流
+- 多分支判断优先用 `match`，避免 if-else 链
+- 枚举、行为分发、元素/类型区分等场景强制 `match`
+
+### 提交前检查（必须在 commit 之前执行）
+```bash
+cargo fmt --all && cargo clippy --all --all-targets -- -D warnings
+```
+> **强制规则**：每次 `git commit` 前必须先跑 `fmt` + `clippy`，确保零警告后再提交。
+
+### CI 构建优化
+```bash
+# 1. 增量编译（减少 40%）
+export CARGO_INCREMENTAL=1
+
+# 2. sccache（20 分钟 → 4-6 分钟）
+cargo install sccache
+# .cargo/config.toml: rustc-wrapper = "sccache"
+
+# 3. 定期清理
+rm -rf ~/.cargo/registry ~/.cargo/git
+```
+
+### 异步阻塞陷阱（Tokio）
+```rust
+// ❌ 同步 I/O 阻塞 worker
+async fn bad() { std::fs::read("f.txt"); }
+
+// ✅ 用 tokio::fs 或 spawn_blocking
+async fn good() { tokio::fs::read("f.txt").await; }
+
+// ❌ 持锁 await
+let guard = mutex.lock().unwrap();
+do_async().await;  // 灾难！
+
+// ✅ 释放锁后再 await
+{ let guard = mutex.lock().unwrap(); }
+do_async().await;
+```
+
+### 序列化性能
+```rust
+// ❌ 高频路径用 JSON
+serde_json::to_string(&payload);
+
+// ✅ 延迟序列化 + 二进制格式
+if error { bincode::serialize(&payload); }
+
+// ✅ 用 &str 代替 String 避免复制
+struct Payload<'a> { name: &'a str }
+```
+
+### 高级优化速查
+| 症状 | 方案 |
+|------|------|
+| p99 差 | `#[cold]` 标记错误路径 |
+| 分配多 | `buf.clear()` 复用容量 |
+| 并发慢 | `Arc::clone` 放边界 |
+| 碎片化 | `mimalloc`/`jemalloc` |
+
+### FFI 三明治（渐进式 C → Rust 迁移）
+
+> **核心思路**：不搞大爆炸式重写。用 Rust 安全层包住现有 C 代码，一个函数一个函数地迁移，生产环境照常跑。
+
+**三层架构：**
+```
+Rust 应用层（安全，无裸指针）
+        ↓
+FFI 垫片层（unsafe 但极薄，只做类型转换）
+        ↓
+C 库层（久经考验，正在赚钱）
+```
+
+#### 5.1 调用方向：每个子系统只选一个
+
+| 方向 | 场景 | 说明 |
+|------|------|------|
+| Rust 调 C | C 库算法成熟，只想加安全壳 | 用 `bindgen` 生成 Rust 绑定 |
+| C 调 Rust | 用 Rust 写新模块，C 程序需要调用 | 用 `cbindgen` 生成 C 头文件 |
+
+> **禁止双向互调**。一个子系统选定方向后不要混用。
+
+#### 5.2 跨边界类型规范
+
+| 允许通过 | 禁止通过 |
+|----------|----------|
+| `*const T`、`*mut T` | `String`、`Vec`、`Option`（C 不认识布局） |
+| 固定宽度整数：`i32`、`u64`、`usize` | `panic`（不能穿越 FFI 边界） |
+| `#[repr(C)]` 结构体 | Rust 的 `drop` 语义 |
+| `(指针, 长度)` 缓冲区组合 | 闭包（用函数指针 + `void*` 上下文替代） |
+| 整数错误码（0 成功，负数失败） | `Result`、`enum`（非 `#[repr(C)]`） |
+
+#### 5.3 安全写法模式：出参 + 状态码
+
+```rust
+use std::os::raw::c_int;
+
+#[repr(C)]
+pub struct FfiResult {
+    pub code: c_int,  // 0 = 成功, <0 = 错误
+}
+
+#[no_mangle]
+pub extern "C" fn rs_sum_u32(
+    input: *const u32,
+    len: usize,
+    out: *mut u64,
+) -> FfiResult {
+    // 1. 检查输入：空指针直接拒绝
+    if input.is_null() || out.is_null() {
+        return FfiResult { code: -1 };
+    }
+
+    // 2. unsafe 块尽量小，像手术刀一样精准
+    // Safety: 调用方保证 input 指向 len 个 u32，out 是有效的
+    let slice = unsafe { std::slice::from_raw_parts(input, len) };
+    let sum: u64 = slice.iter().map(|&x| x as u64).sum();
+    unsafe { *out = sum; }
+
+    // 3. 返回状态码，不用异常不用 panic
+    FfiResult { code: 0 }
+}
+```
+
+**四条铁律：**
+1. **检查输入**：空指针、非法长度，入口就拦
+2. **返回状态码**：`0` 成功，负数错误，`extern "C"` 两边都懂
+3. **通过出参写结果**：不在 FFI 层分配内存
+4. **`unsafe` 块最小化**：只包裹真正需要的语句
+
+#### 5.4 内存管理：谁分配谁释放
+
+```rust
+// ❌ Rust 分配、C 释放 — 分配器不同，必炸
+let ptr = Box::into_raw(Box::new(data));
+// C 端: free(ptr);  // 灾难！
+
+// ✅ Rust 分配 → 必须提供配套的 Rust 释放函数
+#[no_mangle]
+pub extern "C" fn rs_create_buffer(size: usize) -> *mut u8 {
+    let mut buf = Vec::with_capacity(size);
+    let ptr = buf.as_mut_ptr();
+    std::mem::forget(buf);
+    ptr
+}
+
+#[no_mangle]
+pub extern "C" fn rs_free_buffer(ptr: *mut u8, size: usize) {
+    if !ptr.is_null() {
+        unsafe { let _ = Vec::from_raw_parts(ptr, 0, size); }
+    }
+}
+```
+
+| 规则 | 说明 |
+|------|------|
+| Rust 分配 → Rust 释放 | 提供 `rs_free_*` 配套函数 |
+| C 分配 → C 释放 | 不要在 Rust 侧 `drop` |
+| 禁止跨 FFI 传线程共享缓冲区 | 两边运行时对线程理解不同 |
+| 回调用 C 风格 | 函数指针 + `void*` 上下文，不用闭包 |
+
+#### 5.5 构建配置
+
+**Rust 调 C：**
+```toml
+# Cargo.toml
+[lib]
+crate-type = ["cdylib"]  # 动态库，或 ["staticlib"] 静态库
+```
+```rust
+// build.rs
+fn main() {
+    println!("cargo:rustc-link-lib=你的C库名");
+}
+```
+
+**C 调 Rust：** 用 `cbindgen` 从 Rust 代码自动生成 `.h` 头文件，C/C++ 项目正常链接。
+
+#### 5.6 FFI 测试：双通道对比
+
+```bash
+# 同一批输入（边界值、大输入、奇葩 locale），两边跑，比输出
+./c_test_harness < test_corpus.bin > c_output.txt
+./rust_test_harness < test_corpus.bin > rust_output.txt
+diff c_output.txt rust_output.txt
+```
+
+- 浮点数比较约定精度容差：`assert!((a - b).abs() < 1e-9)`
+- `cargo-fuzz` 加入夜间 CI，随机输入轰炸两边接口
+
+#### 5.7 FFI 性能要点
+
+| 原则 | 做法 |
+|------|------|
+| 批量处理 | 传 `(指针, 长度)` 一次处理上千条，别一条一条调 |
+| 热循环单语言 | 算法在 C 或 Rust 内部完成，别跨边界循环 |
+| 不在 FFI 层分配 | 引擎层分配好再传过去 |
+| 性能目标 | 热路径 p95 延迟 ±3% 以内 |
+
+> 瓶颈在**跨边界调用次数**，不在语言本身。用 `perf`/VTune 分析时重点看调用次数。
+
+#### 5.8 渐进式迁移四步法
+
+| 步骤 | 操作 | 要点 |
+|------|------|------|
+| 1. 包一层 | 选最危险的 C 接口，Rust 加安全入口 + 输入校验 | 灰度 10% 流量 |
+| 2. 双跑对比 | C 原路径与 FFI 路径同时跑，比对输出 | 跑满一周，有差异就修 |
+| 3. 搬逻辑 | 三明治内部用 Rust 重写一段 C 逻辑 | 保留 C 回退路径 |
+| 4. 重复 | 下一个危险接口，重复 1-3 | 按**接口面积**迁移，不是代码行数 |
+
+**度量指标：**
+| 指标 | 目标 |
+|------|------|
+| 崩溃率 | FFI 边界引起的段错误/panic 归零 |
+| 热路径 p95 | 前后对比 ±3% |
+| bug 类别 | 跟踪"消灭了哪类 bug"（输入校验类、生命周期类） |
+| 迁移节奏 | 每 sprint 包一个接口，每两个 sprint 搬一块逻辑 |
+
+#### 5.9 安全增益速查
+
+即使底层仍是 C，Rust 壳层也能拦截：
+
+| 风险 | Rust 层防御 |
+|------|------------|
+| 缓冲区溢出 | 入口校验 `(指针, 长度)` 配对，拒绝离谱长度 |
+| 栈溢出 / 死循环 | API 层限制递归深度和迭代上限 |
+| 非法字符串 | 先当 `&[u8]` 处理，显式验证 UTF-8 后再传给 C |
+| 空指针解引用 | 所有 `null` 和非法枚举值在入口拦截 |
+
+#### 5.10 可观测 FFI：日志 + 指标 + 报警
+
+> 三明治解决"怎么安全地迁移"，可观测层解决"迁移过程中出了事怎么知道"。
+
+**升级后的架构：**
+```
+Rust 应用层（安全）
+        ↓
+  ┌─ 观测层（tracing span + metrics + guard）
+  │     ↓
+  │  FFI 垫片层（unsafe，极薄）
+  │     ↓
+  │  C 库层
+  └─ 观测层（记录耗时、校验输出、对比结果）
+```
+
+> 观测层**不碰 `unsafe`、不改 FFI 签名**，装上拆下不影响三明治本体。
+
+##### 观测包装器
+
+```rust
+use tracing::{info_span, warn};
+use std::time::Instant;
+
+/// 给任意 FFI 函数加探针，调用方无感知
+#[inline]
+fn observed_ffi_call<F, R>(func_name: &'static str, f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    let _span = info_span!("ffi_call", func = func_name).entered();
+    let start = Instant::now();
+    let result = f();
+    let elapsed = start.elapsed();
+
+    tracing::debug!(func = func_name, elapsed_us = elapsed.as_micros() as u64, "ffi 调用完成");
+    if elapsed.as_millis() > 50 {
+        warn!(func = func_name, elapsed_ms = elapsed.as_millis() as u64, "ffi 慢调用");
+    }
+    result
+}
+
+// 使用：一行包住原始 FFI 函数体
+#[no_mangle]
+pub extern "C" fn rs_sum_u32(input: *const u32, len: usize, out: *mut u64) -> FfiResult {
+    observed_ffi_call("rs_sum_u32", || {
+        // 原始逻辑不动...
+    })
+}
+```
+
+##### 四类核心指标（`metrics` crate，Prometheus 兼容）
+
+| 指标 | 类型 | 用途 |
+|------|------|------|
+| `ffi_calls_total{func, status}` | Counter | 每个函数调用次数、成功/失败比 |
+| `ffi_duration_us{func}` | Histogram | 调用耗时分布，看 p50/p95/p99 |
+| `ffi_rejected_total{func, reason}` | Counter | 入口校验拦截数（空指针、非法长度） |
+| `ffi_alloc_bytes_total{func}` | Counter | 跨边界内存分配量，`alloc - free` 差值 = 泄漏 |
+
+```rust
+use metrics::{counter, histogram};
+
+fn record_ffi_success(func: &'static str, elapsed_us: u64) {
+    counter!("ffi_calls_total", "func" => func, "status" => "ok").increment(1);
+    histogram!("ffi_duration_us", "func" => func).record(elapsed_us as f64);
+}
+
+fn record_ffi_error(func: &'static str, code: i32) {
+    counter!("ffi_calls_total", "func" => func, "status" => "error").increment(1);
+    counter!("ffi_errors_total", "func" => func, "code" => code.to_string()).increment(1);
+}
+
+fn record_ffi_rejected(func: &'static str, reason: &'static str) {
+    counter!("ffi_rejected_total", "func" => func, "reason" => reason).increment(1);
+}
+```
+
+##### 双路对比（迁移期专用）
+
+同一输入跑 C 和 Rust 两条路，自动对比输出。生产用 C 结果，Rust 仅用于验证：
+
+```rust
+/// feature 开关控制，稳定后关闭，零运行时开销
+#[cfg(feature = "dual_run")]
+fn dual_path_compare<T: PartialEq + std::fmt::Debug>(
+    func: &'static str,
+    c_result: &T,
+    rust_result: &T,
+) {
+    if c_result != rust_result {
+        tracing::error!(func, c = ?c_result, rust = ?rust_result, "双路对比不一致");
+        counter!("ffi_divergence_total", "func" => func).increment(1);
+    }
+}
+```
+
+##### 采样策略：高频调用别全记
+
+```rust
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static CALL_SEQ: AtomicU64 = AtomicU64::new(0);
+
+fn should_log_detail(sampling_rate: u64) -> bool {
+    CALL_SEQ.fetch_add(1, Ordering::Relaxed) % sampling_rate == 0
+}
+```
+
+| 层级 | 采样率 | 说明 |
+|------|--------|------|
+| Metrics（Counter/Histogram） | **100%** | 全量，原子操作开销极低 |
+| 日志（正常调用） | **1/1000** | 采样，只记代表性的 |
+| 日志（错误/慢调用） | **100%** | 全量，每次出事都要有据可查 |
+| 双路对比 | **100%** → **1/100** | 初期全量，确认一致后降采样 |
+
+##### 报警规则
+
+| 条件 | 级别 | 动作 |
+|------|------|------|
+| `ffi_divergence_total` > 0 | **P1** | 双路结果不一致，立即回滚到 C 路径 |
+| `ffi_errors_total` 5 分钟增长 > 历史 3 倍 | **P2** | FFI 层错误激增，检查最近部署 |
+| `ffi_duration_us` p95 偏移 > ±10% | **P3** | 性能回退，排查调用次数变化 |
+| `alloc_bytes - free_bytes` 持续增长 | **P2** | 内存泄漏，检查 `free_*` 是否被调用 |
+| `ffi_rejected_total` 突增 | **P3** | 上游传非法输入，协调调用方修复 |
+
+##### 迁移时间线（结合可观测性）
+
+| 阶段 | 动作 | 观测重点 |
+|------|------|---------|
+| 第 1 周 | 部署观测层，只记录不改逻辑 | 建立基线：正常调用量、耗时分布、错误率 |
+| 第 2-3 周 | 包第一个危险接口，打开 `dual_run` | `ffi_divergence_total` 是否为 0 |
+| 第 4 周 | 双路一致后，切 10% 流量到 Rust 路径 | p95 延迟和错误率是否稳定 |
+| 第 5 周 | 全量切换，关闭 C 路径和 `dual_run` | 保留观测层持续监控 |
+| 循环 | 下一个接口，重复以上 | 每轮迭代都有数据兜底 |
+
+> 每一步的决策依据是**指标**，不是"我觉得没问题"。
+
+---
+
+## 6. C++/ROS2 并发陷阱
+
+### 6.1 异步回调 UAF（Use-After-Free）
+```cpp
+// ❌ expired() 检查后直接访问 — TOCTOU 竞态
+if (weak_self.expired()) return;
+member_var_;  // UAF!
+
+// ✅ lock() 获取 shared_ptr 保护生命周期
+auto self = weak_self.lock();
+if (!self) return;
+member_var_;  // 安全
+```
+
+### 6.2 异步回调局部变量过早销毁
+```cpp
+// ❌ 局部 shared_ptr 作为生命周期标记
+void onStart() {
+    auto self = std::make_shared<int>(1);  // 局部！
+    weak_self_ = self;
+    async_call([weak = weak_self_] { ... });
+}  // self 销毁，回调中 lock() 失败
+
+// ✅ 成员变量持有
+class Action {
+    std::shared_ptr<void> self_holder_;
+    std::weak_ptr<void> weak_self_;
+};
+```
+
+### 6.3 Action Server goal_handle 终止原则
+> **goal_handle 状态变更只在执行线程发生**
+
+```cpp
+// ✅ 用 stop_token 通知，执行线程自己 abort
+void handleAccepted(GoalHandle gh) {
+    if (thread_.joinable()) {
+        thread_.request_stop();
+        thread_.join();
+    }
+    thread_ = std::jthread([gh](std::stop_token st) {
+        while (!st.stop_requested()) { ... }
+        gh->abort(result);  // 只在执行线程调用
+    });
+}
+```
+
+---
+
+## 7. 通用性能优化
+
+### 结构体字段顺序（内存对齐）
+```cpp
+// ❌ 随意排列 — 24 bytes
+struct Bad { char a; int64_t b; char c; int32_t d; };
+
+// ✅ 按大小降序 — 16 bytes
+struct Good { int64_t b; int32_t d; char a; char c; };
+```
+> **法则**：`u64` → `u32` → `u16` → `u8`
+
+### 类型驱动设计
+```cpp
+// 1. Newtype 防止参数混淆
+struct UserId { std::string value; };
+struct Email { std::string value; };
+
+// 2. 所有权清晰
+void read(const Request& req);           // 只读
+void take(std::unique_ptr<Request> req); // 转移
+
+// 3. 类型化错误
+enum class LoadError { NotFound, Timeout, Corrupt };
+std::expected<Data, LoadError> load(id);
+```
+
+### 编译时安全 vs 运行时祈祷
+| 指标 | Go | Rust |
+|------|-----|------|
+| 崩溃率 | 8次/小时 | **0** |
+| 延迟 | 24ms | 13ms |
+| 内存 | 1.3GB | 650MB |
+
+> **借用检查器是安全网，不是惩罚。编译时拦截错误，而不是凌晨两点生产爆炸。**
+
+---
+
+## 8. Bevy ECS 性能优化
+
+> 适用于 Bevy 0.15+，核心原则通用于所有 Archetype ECS。
+
+### 8.1 存储策略选择
+
+```rust
+#[derive(Component)]  // 默认 Table（SoA 连续内存），迭代快
+struct Transform { /* ... */ }
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]  // 频繁增删的临时标记
+struct Poisoned;
+```
+
+| 策略 | 迭代 | 增删 | 适用 |
+|------|------|------|------|
+| Table（默认） | 快（连续内存） | 慢（archetype 迁移） | 稳定组件：Transform, Mesh, Health |
+| SparseSet | 慢 | 快（无迁移） | 临时标记：Buff、状态 Flag |
+
+> **判断标准**：组件生命周期 < 实体生命周期的 10% → SparseSet。
+
+### 8.2 Archetype 碎片化（最常见性能杀手）
+
+每种**唯一的组件组合**产生一个 Archetype，Archetype 越多，每个 Table 越小，迭代连续性越差。
+
+```rust
+// ❌ 每种敌人一个标记组件 → archetype 爆炸
+#[derive(Component)] struct Goblin;
+#[derive(Component)] struct Skeleton;
+#[derive(Component)] struct Dragon;
+// Archetype: (Enemy, Goblin, Transform, ...)
+// Archetype: (Enemy, Skeleton, Transform, ...)
+// Archetype: (Enemy, Dragon, Transform, ...)
+
+// ✅ 用枚举字段 → 共享一个 archetype
+#[derive(Component)]
+enum EnemyType { Goblin, Skeleton, Dragon }
+// Archetype: (Enemy, EnemyType, Transform, ...) ← 只有一个
+```
+
+```rust
+// ❌ Optional 组件拆分成两个 Query → 碎片化
+fn sys(
+    q1: Query<(&A, &B), Without<C>>,
+    q2: Query<(&A, &B, &C)>,
+) { ... }
+
+// ✅ 一个 Query + Option → 减少碎片
+fn sys(query: Query<(&A, &B, Option<&C>)>) {
+    for (a, b, maybe_c) in &query {
+        if let Some(c) = maybe_c { /* ... */ }
+    }
+}
+```
+
+### 8.3 变更检测（减少无效工作）
+
+```rust
+// 只处理本帧变化的实体，跳过未变化的整个 archetype chunk
+fn sync_physics(query: Query<&Transform, Changed<Transform>>) {
+    for transform in &query {
+        // 10000 个实体可能只有 10 个变了
+    }
+}
+
+// 资源级变更检测
+fn update_ui(settings: Res<Settings>) {
+    if !settings.is_changed() { return; }
+    // ...
+}
+```
+
+> `Changed<T>` 的粒度是 archetype table chunk，不是单个实体。同一 chunk 内任一实体变化，整个 chunk 都会被遍历。
+
+### 8.4 Run Conditions（跳过整个 System）
+
+```rust
+app.add_systems(
+    Update,
+    (
+        player_input.run_if(in_state(GameState::Playing)),
+        pause_menu.run_if(in_state(GameState::Paused)),
+        // 条件不满足 → system 完全不执行，零开销
+        expensive_ai.run_if(any_enemies_alive),
+    ),
+);
+
+// 自定义 run condition
+fn any_enemies_alive(query: Query<(), With<Enemy>>) -> bool {
+    !query.is_empty()
+}
+```
+
+### 8.5 Observers vs 轮询（事件驱动优于每帧遍历）
+
+```rust
+// ❌ 每帧轮询新增实体
+fn detect_new_enemies(query: Query<&Enemy, Added<Enemy>>) {
+    for enemy in &query { /* ... */ }
+}
+
+// ✅ Observer：精确触发，实体多时差距巨大
+app.add_observer(on_add_enemy);
+
+fn on_add_enemy(trigger: Trigger<OnAdd, Enemy>, query: Query<&Transform>) {
+    let entity = trigger.target();
+    // 只在实际添加时触发
+}
+```
+
+| 方式 | 10 万实体 0 变化 | 10 万实体 1 变化 |
+|------|-----------------|-----------------|
+| `Added<T>` 轮询 | 遍历全表（慢） | 遍历全表找到 1 个 |
+| Observer | 不执行 | 精确触发 1 次 |
+
+### 8.6 Query 过滤优化
+
+```rust
+// With/Without 在 archetype 匹配阶段过滤，迭代时零开销
+fn move_players(query: Query<&mut Transform, (With<Player>, Without<Dead>)>) { ... }
+
+// 用 AnyOf 代替多个 Optional
+fn sys(query: Query<&Transform, AnyOf<(&A, &B, &C)>>) {
+    // 至少有 A/B/C 其中一个的实体
+}
+```
+
+### 8.7 并行迭代
+
+```rust
+// 多线程并行，按 archetype table 分片
+fn move_system(mut query: Query<(&mut Transform, &Velocity)>) {
+    query.par_iter_mut().for_each(|(mut transform, velocity)| {
+        transform.translation += velocity.0 * dt;
+    });
+}
+```
+
+> **注意**：`par_iter` 是任务并行（多线程），不是数据并行（SIMD）。每个线程内仍然逐实体迭代。
+
+### 8.8 Bevy 没有的（已知局限）
+
+| 缺失能力 | 说明 | 替代方案 |
+|----------|------|---------|
+| 列级裸指针访问 | 无法拿到 `*const T` + count 做 SIMD | 热路径数据放 ECS 外的 `Vec<T>`，手动 SIMD |
+| 向量批处理 API | `iter_batches()` 拿到的仍是单个引用 | 用 `unsafe` 访问内部 `Table::Column`（脆弱） |
+| Zero-copy 跨 System 共享 | System 间通过调度器隔离 | `Res<T>` 共享只读数据 |
+
+> 对于 UI 应用和常规游戏逻辑，以上局限不构成实际瓶颈。只有粒子系统、大规模物理模拟（10 万+ 同质实体）才需要绕过。
+
+### 8.9 性能瓶颈排查优先级
+
+```
+1. Archetype 碎片化    → 合并标记组件为枚举，减少 Optional 拆分
+2. 不必要的每帧轮询    → 改用 Changed / Observer / run_if
+3. Entity 数量爆炸     → 合批渲染，虚拟滚动
+4. System 串行化       → 检查读写冲突，拆分 Query 解除依赖
+5. 组件频繁增删        → 改用 SparseSet 存储
+6. 缺少 SIMD 批处理   → 热路径提到 ECS 外部处理
+```
+
+### 8.10 实战优化清单（从实际评审提炼）
+
+#### ❌ 无脑 `.chain()` 是最大的反模式
+
+```rust
+// ❌ 全部串行，浪费多核
+.add_systems(Update, (
+    targeting, fire, move_proj, detect_hits, damage, status, visuals,
+).chain())
+
+// ✅ 按真实数据依赖用 .after()
+.add_systems(Update, (
+    targeting,
+    fire.after(targeting),
+    move_proj,  // 与 fire 无数据依赖，并行执行（1 帧延迟可接受）
+    detect_hits.after(fire).after(move_proj),
+    damage.after(detect_hits),
+    status.after(damage),
+    visuals.after(status),
+))
+```
+
+> **判断标准**：两个 system 读写的组件不重叠 → 不该串行。  
+> **可接受的延迟**：弹道移动和目标获取差 1 帧，玩家感知不到。
+
+#### ✅ 每个 System 开头加快速路径
+
+```rust
+// ✅ 空集合快速返回，省掉调度开销
+fn tick_status_effects(mut query: Query<&mut StatusEffects>) {
+    if query.is_empty() { return; }
+    // ...
+}
+
+fn tick_auras(towers: Query<...>, enemies: Query<...>) {
+    if towers.is_empty() || enemies.is_empty() { return; }
+    // ...
+}
+```
+
+#### ✅ 高频组件的 `Vec<T>` 改 `SmallVec`
+
+```rust
+use smallvec::SmallVec;
+
+// ❌ 每帧 tick 都可能触发堆分配
+pub struct StatusEffects(pub Vec<StatusEffect>);
+
+// ✅ 内联 4 个（覆盖 95% 场景），溢出才堆分配
+pub struct StatusEffects(pub SmallVec<[StatusEffect; 4]>);
+```
+
+**判断标准**：
+- 组件在热路径（每帧遍历所有实体）→ 必须 SmallVec
+- 组件稳定（创建后不变）→ 保持 Vec，别过度优化
+- 容量 = P95 实际长度（不是最大值）
+
+#### ✅ 空间索引代替 O(M×N)
+
+```rust
+// ❌ 每塔遍历所有敌人
+for tower in &towers {
+    for enemy in &enemies { ... }
+}
+
+// ✅ Uniform Grid（XZ 平面，cell_size ≈ 最大攻击半径）
+pub struct SpatialGrid {
+    cells: HashMap<CellKey, SmallVec<[GridEntry; 4]>>,
+    cell_size: f32,
+}
+
+for tower in &towers {
+    grid.query_radius(tower.pos, tower.range, |enemy| { ... });
+}
+```
+
+**复用查询结果**：多层/多效果共用同一次网格查询，不要每个效果都查一次。
+
+#### ✅ 死亡/状态变更用 `Changed<T>` 代替轮询
+
+```rust
+// ❌ 每帧遍历所有敌人检查血量
+fn check_death(query: Query<(Entity, &Health)>) { ... }
+
+// ✅ 只在 Health 变化时检查
+fn check_death(query: Query<(Entity, &Health), Changed<Health>>) { ... }
+```
+
+#### ✅ 资源句柄预加载
+
+```rust
+// ❌ 每次生成实体都 load
+fn spawn_projectile(asset_server: Res<AssetServer>, ...) {
+    let scene = asset_server.load("models/proj.glb#Scene0");  // 每次都查缓存
+    commands.spawn(SceneRoot(scene));
+}
+
+// ✅ 游戏启动时预加载，运行时克隆句柄
+#[derive(Resource)]
+struct ProjectileAssets { scene: Handle<Scene> }
+
+fn preload(mut commands: Commands, server: Res<AssetServer>) {
+    commands.insert_resource(ProjectileAssets {
+        scene: server.load("models/proj.glb#Scene0"),
+    });
+}
+
+fn spawn_projectile(assets: Res<ProjectileAssets>, ...) {
+    commands.spawn(SceneRoot(assets.scene.clone()));  // 只 clone Arc
+}
+```
+
+### 8.11 代码级微优化
+
+#### sqrt 延迟计算
+
+```rust
+// ❌ 不管距离多远都算 sqrt
+let dist = pos.distance(other);
+if dist < range { damage *= 1.0 - dist / range; }
+
+// ✅ 先用 distance_squared 筛选，通过的才算 sqrt
+let range_sq = range * range;
+let dist_sq = pos.distance_squared(other);
+if dist_sq > range_sq { continue; }  // 大多数敌人在这里被筛掉
+let dist = dist_sq.sqrt();  // 只有少数需要算
+
+// ✅✅ 完全避免 sqrt：用平方比设计衰减曲线
+let ratio_sq = dist_sq / range_sq;
+damage *= 1.0 - ratio_sq * 0.5;  // 衰减曲线变陡，但游戏体感仍合理
+```
+
+#### 多次 `.iter().any()` 合并为单次遍历
+
+```rust
+// ❌ 4 次扫描同一个 Vec
+let frozen = effects.iter().any(|e| matches!(e, Frozen { .. }));
+let burning = effects.iter().any(|e| matches!(e, Burning { .. }));
+let shocked = effects.iter().any(|e| matches!(e, Shocked { .. }));
+let poisoned = effects.iter().any(|e| matches!(e, Poisoned { .. }));
+
+// ✅ 单次遍历，match 分发
+let (mut frozen, mut burning, mut shocked, mut poisoned) = (false, false, false, false);
+for e in effects {
+    match e {
+        Frozen { .. } => frozen = true,
+        Burning { .. } => burning = true,
+        Shocked { .. } => shocked = true,
+        Poisoned { .. } => poisoned = true,
+    }
+}
+```
+
+#### 常量参数预计算到实体组件
+
+```rust
+// ❌ 每帧/每次开火都重算权重和
+fn fire(towers: Query<&SkillLayers>) {
+    for skills in &towers {
+        let total: f32 = skills.iter().map(|s| s.weight).sum();  // 权重不变，浪费
+        // 用 total 做加权随机...
+    }
+}
+
+// ✅ 塔创建时计算一次，存入组件
+#[derive(Component)]
+struct PrecomputedWeight { total: f32 }
+
+fn on_tower_spawn(mut commands: Commands, skills: &SkillLayers, entity: Entity) {
+    let total = skills.iter().map(|s| s.weight).sum();
+    commands.entity(entity).insert(PrecomputedWeight { total });
+}
+```
+
+#### Handle / Arc 数据避免频繁 clone
+
+```rust
+// ❌ 每次开火 clone 整个特效列表
+for layer in &attack_layers {
+    let effects: Vec<Effect> = layer.on_hit_effects.clone();  // 可能是 Vec<Arc<T>>
+    spawn_projectile_with_effects(effects);
+}
+
+// ✅ 用 Arc<Vec<T>>，clone 只增引用计数
+#[derive(Clone)]
+struct AttackLayer {
+    on_hit_effects: Arc<[Effect]>,  // 不可变共享数据
+}
+```
+
+### 8.12 Profiling 基础设施（早建晚省）
+
+项目超过 5000 行就应该建：
+
+```rust
+// 1. 自定义诊断点，覆盖每个热路径 system
+pub const TARGETING_MS: DiagnosticPath = DiagnosticPath::const_new("targeting_ms");
+pub const DAMAGE_MS: DiagnosticPath = DiagnosticPath::const_new("damage_ms");
+
+fn targeting(mut diagnostics: Diagnostics, ...) {
+    let t0 = Instant::now();
+    // ... system 逻辑
+    diagnostics.add_measurement(&TARGETING_MS, || t0.elapsed().as_secs_f64() * 1000.0);
+}
+
+// 2. FPS 叠加层（像素级绘制曲线，避免 UI 节点堆砌）
+//    记录 600 帧历史 + 0.1% Low 百分位
+//    F10 切换显示
+
+// 3. 控制台定期输出（1 秒一次，按需打开）
+```
+
+**什么时候该建**：出现"感觉卡但不知道卡哪"时。自己猜瓶颈十次有九次猜错，上诊断点直接定位。
+
+### 8.13 评审时的六步检查法
+
+```
+1. grep .chain() → 检查是否过度串行，能否改 .after()
+2. grep "pub struct.*Vec<" 组件定义 → 高频组件是否该用 SmallVec
+3. grep "distance(" → 是否可改 distance_squared()
+4. grep "asset_server.load" → 是否在热路径而非预加载
+5. grep "Query<" + 看系统开头 → 是否加了 is_empty() 快速路径
+6. 看 Query filter → 是否该加 Changed<T>
+```
+
+---
+
+## 9. 机器人与分布式
+
+- **ROS 2（Humble）**：规范包结构与 QoS；行为树用 **BehaviorTree.CPP v4.6**
+- **数据流**：探索 **Dora-rs**（Zenoh）；YAML/JSON 描述数据流
+- **视觉**：RealSense D435i；注意驱动版本固定
+
+---
+
+## 10. 约定速记
+
+| 项目 | 规范 |
+|------|------|
+| 命名 | `snake_case`；类型 `UpperCamelCase` |
+| 所有权 | RAII；禁止 `new/delete`；首选 `unique_ptr` |
+| 控制流 | 禁止 `goto` |
+| 接口 | `string_view`/`span`/`optional`；`[[nodiscard]]` |
+| 错误 | 返回值优先；异常最小化 |
+| 构建 | C++20；CI 警告当错误；Sanitizer 可开 |
+| 依赖 | 优先 `3rd-party/`（vendor） |
+
+---
+
+## 11. Shell 检测
+
+### POSIX
+```bash
+if [ -n "$BASH_VERSION" ]; then SHELL_TYPE=bash
+elif [ -n "$ZSH_VERSION" ]; then SHELL_TYPE=zsh; fi
+```
+
+### PowerShell
+```powershell
+if (-not $PSVersionTable) { exit 1 }
+```
+
+> 提供两个入口：`bootstrap.sh` + `bootstrap.ps1`
+
+---
+
+## 12. 沟通原则
+
+- **如果我的观点有误或过时，随时直接指出，不留情面。**以事实与数据为准，立刻修正。
+
+---
+
+## 13. 打包与发布
+
+> 以下规则适用于所有语言的项目，语言特定的编译配置放各自专项章节。
+
+### 版本号
+- 版本号定义在项目的**唯一权威来源**（如 `Cargo.toml`、`pyproject.toml`、`CMakeLists.txt`、`package.json`）
+- 格式遵循 [SemVer](https://semver.org/)：`MAJOR.MINOR.PATCH`（如 `0.3.0`）
+- 多模块/多包项目统一版本，不允许子模块各自定义版本号
+
+### 版本格式
+| 场景 | 格式 | 示例 |
+|------|------|------|
+| Release（推送 `v*` 标签） | `v{version}+{commit7位}` | `v0.3.0+abc1234` |
+| Dev（分支推送） | `v{version}+{日期}.{commit7位}` | `v0.3.0+20260303.abc1234` |
+| 本地部署 | `v{version}` | `v0.3.0` |
+
+### 产物命名
+`{项目名}-{完整版本}-{平台}.{扩展名}`
+
+| 平台 | 扩展名 | 示例 |
+|------|--------|------|
+| Linux x64 | `.tar.gz` | `myapp-v0.3.0+abc1234-linux-x64.tar.gz` |
+| Windows x64 | `.zip` | `myapp-v0.3.0+abc1234-windows-x64.zip` |
+| macOS ARM64 | `.tar.gz` | `myapp-v0.3.0+abc1234-macos-arm64.tar.gz` |
+
+### 打包内容
+```
+package/
+├── 可执行文件（或入口脚本）
+├── VERSION                    # 纯文本版本号
+└── 运行时必需资源/            # 字体、配置、静态文件等
+```
+- 只打包**运行时必需**的文件，不含源码、测试、文档
+- `VERSION` 文件内容与产物命名中的版本一致
+
+### 二进制压缩
+- Linux / Windows：UPX `--best --lzma`（编译型语言适用）
+- macOS：跳过（UPX 不支持）
+
+### 预发布标记
+标签含 `beta` / `alpha` / `rc` → Release 标记为 prerelease
+
+### 本地部署脚本
+- 统一放 `scripts/` 目录
+- 提供 `deploy.sh`（Linux/macOS）+ `deploy-windows.ps1`（Windows）
+- 产物输出到 `bin/` 目录
+
+### CI/CD 流水线触发
+| 事件 | 动作 |
+|------|------|
+| push / PR → main/master/develop | lint → test → build（多平台） |
+| push `v*` 标签 | 上述 + 上传产物 + 创建 Release |
+
+**Rust 项目 CI 顺序**：`cargo fmt` → `cargo clippy` → `cargo test` → `cargo build`（严格串行，前一步失败则终止）
+
+---
+
+## 14. Draw.io（macOS）
+
+```bash
+# 导出 PNG（2x 缩放）
+/Applications/draw.io.app/Contents/MacOS/draw.io -x -f png -s 2 input.drawio
+```
+
+- 默认样式：`rounded=1`、`spacing=15`、边路由 `orthogonal`
+
+---
+
+> 此文件为个人偏好基线。新项目可按需裁剪/调整，但请先确认差异点。
