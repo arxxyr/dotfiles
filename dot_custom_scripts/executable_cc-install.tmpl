@@ -1,0 +1,36 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+    echo "用法: cc-install <包名> [包名...]"
+    exit 1
+fi
+
+PROXYCHAINS="${PROXYCHAINS_BIN:-proxychains}"
+
+echo ">>> 安装: $*"
+sudo "$PROXYCHAINS" apt install -y "$@"
+
+echo "[OK] Done"
+{{ else if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+    echo "用法: cc-install <包名> [包名...]"
+    exit 1
+fi
+
+PROXY="${PROXY:-http://127.0.0.1:10808}"
+
+export HTTP_PROXY="$PROXY"
+export HTTPS_PROXY="$PROXY"
+export ALL_PROXY="$PROXY"
+export NO_PROXY="localhost,127.0.0.1,::1,.local"
+
+echo ">>> 安装: $* (proxy: $PROXY)"
+brew install "$@"
+
+echo "[OK] Done"
+{{ end -}}

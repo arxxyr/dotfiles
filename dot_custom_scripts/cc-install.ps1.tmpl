@@ -1,0 +1,35 @@
+{{- if eq .chezmoi.os "windows" -}}
+param(
+    [Parameter(Mandatory=$true, Position=0, ValueFromRemainingArguments=$true)]
+    [string[]]$Packages,
+    [string]$Proxy = 'http://127.0.0.1:10808'
+)
+
+$ErrorActionPreference = 'Stop'
+
+if ($Packages.Count -eq 0) {
+    Write-Host "用法: cc-install <包名> [包名...] [-Proxy <代理地址>]"
+    exit 1
+}
+
+$old_http  = $env:HTTP_PROXY
+$old_https = $env:HTTPS_PROXY
+
+try {
+    $env:HTTP_PROXY  = $Proxy
+    $env:HTTPS_PROXY = $Proxy
+
+    foreach ($pkg in $Packages) {
+        Write-Host ">>> 安装 $pkg (proxy: $Proxy)..."
+        & winget install $pkg `
+            --accept-source-agreements `
+            --accept-package-agreements `
+            --proxy $Proxy
+    }
+
+    Write-Host "[OK] Done"
+} finally {
+    $env:HTTP_PROXY  = $old_http
+    $env:HTTPS_PROXY = $old_https
+}
+{{ end -}}
