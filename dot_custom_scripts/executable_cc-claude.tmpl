@@ -25,6 +25,7 @@ export HTTPS_PROXY="$PROXY"
 export ALL_PROXY="$PROXY"
 export NO_PROXY="localhost,127.0.0.1,::1,.local"
 export TMPDIR="$HOME/.claude/tmp"
+export CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1
 echo "Proxy: $PROXY"
 exec claude --dangerously-skip-permissions
 ;;
