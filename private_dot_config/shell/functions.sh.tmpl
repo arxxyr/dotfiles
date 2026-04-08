@@ -59,3 +59,12 @@ elif [ -n "$BASH_VERSION" ]; then
   [ -f /opt/ros/humble/setup.bash ] && source /opt/ros/humble/setup.bash
 fi
 {{- end }}
+
+# starship
+if command -v starship >/dev/null 2>&1; then
+  if [ -n "$ZSH_VERSION" ]; then
+    eval "$(starship init zsh)"
+  elif [ -n "$BASH_VERSION" ]; then
+    eval "$(starship init bash)"
+  fi
+fi
