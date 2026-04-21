@@ -30,7 +30,7 @@ disable-model-invocation: true
 
 # 工程目录（Spec 落盘约定）
 ```
-mydocs/
+team-swe/
 ├── codemap/              # 长期资产：单项目代码索引，跨需求复用
 ├── context/              # 一次性语料：PRD/设计图/讨论记录，用完即归档
 ├── specs/                # 核心资产：每个需求一份 Spec，是代码的"源码"
@@ -49,13 +49,13 @@ mydocs/
 - tech_lead 或任一 implementer 对相关代码路径不熟
 
 **操作**：
-- tech_lead 让 agent 扫描相关模块，产出 `mydocs/codemap/<module>.md`，覆盖：
+- tech_lead 让 agent 扫描相关模块，产出 `team-swe/codemap/<module>.md`，覆盖：
   - 入口点（Controller / Filter / 定时任务 / CLI）
   - 核心调用链路（必须带 `文件:行号`）
   - 外部依赖（DB / RPC / MQ / 外部 API）
   - 风险点 + 不确定项
-- 需求来源分散时额外产出 `mydocs/context/<name>_bundle.md`：提炼 PRD + 设计图 + 讨论记录，标注冲突与不确定项。
-- 跨项目场景产出 `mydocs/projectmap.md`，回答四个问题：
+- 需求来源分散时额外产出 `team-swe/context/<name>_bundle.md`：提炼 PRD + 设计图 + 讨论记录，标注冲突与不确定项。
+- 跨项目场景产出 `team-swe/projectmap.md`，回答四个问题：
   - 本次任务涉及哪些项目
   - 项目间如何调用/依赖/传数据
   - 每个项目应先看哪条链路、哪几个模块
@@ -68,7 +68,7 @@ mydocs/
 ---
 
 # Step 0) Intake（tech_lead 收敛上下文）
-产出 `mydocs/specs/<需求名>.md` 首版：
+产出 `team-swe/specs/<需求名>.md` 首版：
 - 需求一句话定义（What）
 - **结构化 AC（Acceptance Criteria）**，AC 在代码之前定义，dev 和 qa 共享同一份：
   ```
@@ -256,10 +256,10 @@ tech_lead 定义并执行，至少包含：
 > **遗忘 = 资产断供。** RIPER 闭环后，必须把本次 Spec 精简合并为团队长期复用资产。
 
 tech_lead 执行归档，产出：
-- `mydocs/specs/<需求名>_human.md` — **Human 视角版**：精炼方案与汇报，可供人阅读、维护与同侪 Review
-- `mydocs/specs/<需求名>_llm.md` — **LLM 视角版**：萃取项目背景、数据结构、关键决策，高度浓缩为机器输入切片，**留给下次接手项目或修复 Bug 的 AI 直接恢复上下文的钥匙**
-- 更新对应 `mydocs/codemap/<module>.md`（如本次改动涉及链路/依赖变更）
-- 对应 `mydocs/context/` 内的一次性语料标记归档或清理
+- `team-swe/specs/<需求名>_human.md` — **Human 视角版**：精炼方案与汇报，可供人阅读、维护与同侪 Review
+- `team-swe/specs/<需求名>_llm.md` — **LLM 视角版**：萃取项目背景、数据结构、关键决策，高度浓缩为机器输入切片，**留给下次接手项目或修复 Bug 的 AI 直接恢复上下文的钥匙**
+- 更新对应 `team-swe/codemap/<module>.md`（如本次改动涉及链路/依赖变更）
+- 对应 `team-swe/context/` 内的一次性语料标记归档或清理
 
 归档完成前不得进入 Step 9 收尾。
 
@@ -299,16 +299,16 @@ tech_lead 执行归档，产出：
 ---
 
 # 线上故障排查 SOP（DEBUG）
-**触发**：线上 Bug / P0-P2 故障 / 紧急 hotfix
+**触发**：线上 Bug / P0-P2 故障 / 紧急 hotfix`
 
 **操作**：
 1. **三件套喂给 agent**：
    - 出事节点**日志**（关键 error/warn 行，带时间戳）
    - 报错的**直接结果**（调用栈 / 响应体 / 监控截图）
-   - 最原始实现该功能的 **Spec**（`mydocs/specs/<name>.md` 或 `_llm.md`）
+   - 最原始实现该功能的 **Spec**（`team-swe/specs/<name>.md` 或 `_llm.md`）
 2. **三角定位**：agent 对比"设计预期（Spec）vs 现实表现（日志/监控）vs 实际实现（代码）"，输出定界结论与根因假设
 3. **Reverse Sync 强约束**：定界后**先落 Spec 修改方案**（新增 § Fix Plan），经 tech_lead + security 审批，**再对代码打补丁**
-4. **修复后必须更新**对应 `mydocs/codemap/<module>.md`（如链路/依赖有变）与 Spec § Review Verdict
+4. **修复后必须更新**对应 `team-swe/codemap/<module>.md`（如链路/依赖有变）与 Spec § Review Verdict
 5. 若本次是既有 Spec 未覆盖的盲区，Archive 阶段把教训写进 `_llm.md` 的"易错点"段，防下次踩同坑
 
 **禁止**：不对照 Spec 就盲目抓 Bug；修完代码不回写 Spec。
