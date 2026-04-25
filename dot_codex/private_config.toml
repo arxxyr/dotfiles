@@ -1,0 +1,10 @@
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+[projects."/home/loosqk/repo/robot/robot-system"]
+trust_level = "trusted"
+
+[tui]
+status_line = ["model-with-reasoning", "git-branch", "context-remaining", "run-state", "current-dir", "five-hour-limit", "weekly-limit", "context-window-size", "used-tokens", "fast-mode", "task-progress"]
+
+[tui.model_availability_nux]
+"gpt-5.5" = 2
