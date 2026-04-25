@@ -1,0 +1,43 @@
+{{- if eq .chezmoi.os "windows" }}
+param(
+[Parameter(Position=0)]
+[ValidateSet('start','kill')]
+[string]$Action = 'start',
+
+[string]$Proxy = 'http://127.0.0.1:10808',
+[string]$NoProxy = 'localhost,127.0.0.1,::1,.local'
+)
+
+$ErrorActionPreference = 'Stop'
+
+switch ($Action) {
+'kill' {
+$procs = Get-Process -Name 'codex' -ErrorAction SilentlyContinue
+if (-not $procs) {
+Write-Host "[OK] No codex processes running"
+return
+}
+Write-Host "Killing codex processes:"
+$procs | ForEach-Object { Write-Host " PID $($_.Id) - $($_.ProcessName)" }
+$procs | Stop-Process -Force
+Write-Host "[OK] Done"
+}
+'start' {
+$env:HTTP_PROXY = $Proxy
+$env:HTTPS_PROXY = $Proxy
+$env:ALL_PROXY = $Proxy
+$env:NO_PROXY = $NoProxy
+
+Write-Host "Proxy: $Proxy"
+
+$codexExe = Get-Command 'codex' -ErrorAction SilentlyContinue
+if (-not $codexExe) {
+$npmDefault = Join-Path $env:APPDATA 'npm\codex.cmd'
+if (Test-Path $npmDefault) { $codexExe = $npmDefault }
+else { throw 'codex not found. Install via "npm install -g @openai/codex" or add npm bin to PATH.' }
+}
+
+& $codexExe --dangerously-bypass-approvals-and-sandbox
+}
+}
+{{ end -}}
