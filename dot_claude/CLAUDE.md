@@ -131,6 +131,85 @@ cargo install sccache
 rm -rf ~/.cargo/registry ~/.cargo/git
 ```
 
+### 构建耗时分析（cargo --timings）
+
+Cargo 1.95+ 把 `--timings` 报告渲染为 SVG：文本可选、可复制、可贴进 PR/issue，适合作为评审证据。
+
+```bash
+# 生成报告（HTML 入口 + 带时间戳历史）
+cargo build --workspace --all-targets --timings
+# 产物：target/cargo-timings/cargo-timing.html
+```
+
+**报告里看三类信息**：
+
+| 维度 | 关注点 |
+|------|--------|
+| 构建单元耗时 | 时间轴上每个 unit 的长度 + 谁在挡住后续 unit（关键路径） |
+| 并发状态 | active 多 = CPU 忙；waiting 多 = 槽位不够；inactive 多 = 依赖未就绪 |
+| build.rs / codegen | 系统探测、bindgen、外部 C/C++ 编译，常被忽视的耗时点 |
+
+**触发场景**（不是等到大家觉得慢才跑）：
+
+1. **依赖变更**：PR 新增依赖、打开 feature、替换底层库 → 必跑一次
+2. **CI 基线**：主分支定期跑并 `upload-artifact` 保留 `target/cargo-timings/*.html`，留下趋势对照物
+3. **AI 生成代码评审**：PR 模板里明确——涉及 workspace / build.rs / 依赖变更时必须附 timing 报告
+
+**排查顺序**（不要先盯"最慢的 crate"）：
+
+1. **关键路径**：挡住最多后续 unit 的才是首要优化点；自身慢但并行度好的次之
+2. **重复版本**：`cargo tree -d` 配合看，同一库多版本若落在关键路径上优先收敛
+3. **build.rs**：缓存生成结果、收敛默认 feature、固定外部工具版本
+4. **crate 拆分**：判断标准是"修改高频代码时能否减少重编译"，不是"crate 越小越好"
+
+> **边界**：`--timings` 不是火焰图，不替代 rustc 内部阶段分析。它给的是 Cargo 视角的地图——慢路径在哪、谁挡住谁、哪些 build script 可疑。
+
+### 下一代 trait solver canary（-Znext-solver=globally）
+
+Rust 2026 把下一代 trait solver 推向稳定。**不要切默认构建**，加一条非阻塞 canary job 提前体检 trait / 关联类型 / GAT / impl Trait 代码——稳定前暴露的问题修起来永远比稳定后便宜。
+
+```bash
+# 最小可用：正确性体检
+RUSTFLAGS="-Znext-solver=globally" cargo +nightly check --workspace --all-targets
+RUSTFLAGS="-Znext-solver=globally" cargo +nightly test  --workspace --all-targets --no-run
+
+# 编译时间对比（关心性能时再加）
+cargo +nightly clean && time cargo +nightly check --workspace --all-targets
+cargo +nightly clean && RUSTFLAGS="-Znext-solver=globally" time cargo +nightly check --workspace --all-targets
+```
+
+**GitHub Actions canary**（`continue-on-error: true`，绝不阻塞主链路）：
+
+```yaml
+jobs:
+  next-solver-canary:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo +nightly fetch
+      - run: RUSTFLAGS="-Znext-solver=globally" cargo +nightly check --workspace --all-targets
+      - run: RUSTFLAGS="-Znext-solver=globally" cargo +nightly test  --workspace --all-targets --no-run
+```
+
+**最容易撞坑的代码模式**：GAT、impl Trait / RPIT / RPITIT、深层关联类型、大量 blanket impl、递归 trait 约束、高阶生命周期组合。基础设施 / 中台 crate 命中概率最高。
+
+**canary 要盯的四类信号**：
+
+| 信号 | 关注点 |
+|------|--------|
+| 接受/拒绝差异 | 同一份代码 stable vs canary 是否一边过一边挂 |
+| 报错聚集 | 错误是否集中在 GAT、关联类型、impl Trait、递归 trait 周围 |
+| IDE 反馈 | 悬停/补全/诊断在少数文件里是否显著变慢 |
+| 干净构建时间 | 核心 crate 是否出现可复现回归 |
+
+**撞到差异时**：先缩到单 crate，再缩成几十行最小复现——别拿整个 workspace 排，也别第一反应关 nightly。
+
+```bash
+RUSTFLAGS="-Znext-solver=globally" cargo +nightly check -p your-crate
+```
+
 ### 异步阻塞陷阱（Tokio）
 ```rust
 // ❌ 同步 I/O 阻塞 worker
