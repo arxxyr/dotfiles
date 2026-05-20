@@ -60,6 +60,19 @@ fi
 model=$(json_str 'display_name')
 used_pct=$(json_num 'used_percentage')
 
+# --- Token / cost 信息（嵌套字段，用 jq 提取）---
+in_tok=0
+out_tok=0
+cost_usd=0
+if command -v jq >/dev/null 2>&1; then
+    in_tok=$(echo  "$input" | jq -r '.context_window.total_input_tokens   // 0' 2>/dev/null)
+    out_tok=$(echo "$input" | jq -r '.context_window.total_output_tokens  // 0' 2>/dev/null)
+    cost_usd=$(echo "$input" | jq -r '.cost.total_cost_usd                // 0' 2>/dev/null)
+fi
+# 整数化（jq 可能给出浮点）
+in_tok=${in_tok%.*}; out_tok=${out_tok%.*}
+total_tok=$(( ${in_tok:-0} + ${out_tok:-0} ))
+
 # --- 颜色定义 ---
 RESET='\033[0m'
 BOLD='\033[1m'
@@ -112,10 +125,34 @@ if [ -n "$used_pct" ]; then
     part_ctx=$(printf "  ctx:%s%d%%%s" "$arrow_color" "${pct_int:-0}" "$RESET")
 fi
 
-printf "%b%b%b%b%b%b\n" \
+# token 千分位 / k / M 简写
+fmt_tok() {
+    local n=$1
+    if [ "$n" -ge 1000000 ] 2>/dev/null; then
+        awk -v n="$n" 'BEGIN { printf "%.2fM", n/1000000 }'
+    elif [ "$n" -ge 1000 ] 2>/dev/null; then
+        awk -v n="$n" 'BEGIN { printf "%.1fk", n/1000 }'
+    else
+        echo "$n"
+    fi
+}
+
+part_tok=""
+if [ "${total_tok:-0}" -gt 0 ] 2>/dev/null; then
+    part_tok=$(printf "  ${CYAN}tok:%s${RESET}" "$(fmt_tok ${total_tok})")
+fi
+
+part_cost=""
+if awk -v c="$cost_usd" 'BEGIN { exit !(c+0 > 0) }' 2>/dev/null; then
+    part_cost=$(printf "  ${GREEN}\$%.3f${RESET}" "$cost_usd")
+fi
+
+printf "%b%b%b%b%b%b%b%b\n" \
     "$part_arrow" \
     "$part_dir" \
     "$part_git" \
     "$part_py" \
     "$part_model" \
-    "$part_ctx"
+    "$part_ctx" \
+    "$part_tok" \
+    "$part_cost"
