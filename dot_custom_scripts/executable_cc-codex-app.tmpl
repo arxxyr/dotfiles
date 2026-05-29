@@ -1,0 +1,91 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROXY="${CODEX_PROXY:-http://127.0.0.1:10808}"
+TZ_VALUE="${CODEX_TZ:-America/New_York}"
+APP_ID="com.openai.codex"
+
+set_codex_env() {
+  export HTTP_PROXY="$PROXY"
+  export HTTPS_PROXY="$PROXY"
+  export ALL_PROXY="$PROXY"
+  export NO_PROXY="localhost,127.0.0.1,::1,.local"
+  export http_proxy="$HTTP_PROXY"
+  export https_proxy="$HTTPS_PROXY"
+  export all_proxy="$ALL_PROXY"
+  export no_proxy="$NO_PROXY"
+  export TZ="$TZ_VALUE"
+
+  launchctl setenv HTTP_PROXY "$HTTP_PROXY" >/dev/null 2>&1 || true
+  launchctl setenv HTTPS_PROXY "$HTTPS_PROXY" >/dev/null 2>&1 || true
+  launchctl setenv ALL_PROXY "$ALL_PROXY" >/dev/null 2>&1 || true
+  launchctl setenv NO_PROXY "$NO_PROXY" >/dev/null 2>&1 || true
+  launchctl setenv http_proxy "$http_proxy" >/dev/null 2>&1 || true
+  launchctl setenv https_proxy "$https_proxy" >/dev/null 2>&1 || true
+  launchctl setenv all_proxy "$all_proxy" >/dev/null 2>&1 || true
+  launchctl setenv no_proxy "$no_proxy" >/dev/null 2>&1 || true
+  launchctl setenv TZ "$TZ" >/dev/null 2>&1 || true
+}
+
+kill_app() {
+  local pids
+  pids="$(pgrep -x Codex 2>/dev/null || true)"
+  if [[ -z "$pids" ]]; then
+    echo "[OK] No Codex desktop processes running"
+    return
+  fi
+
+  echo "Quitting Codex desktop"
+  osascript -e "quit app id \"$APP_ID\"" >/dev/null 2>&1 || true
+  sleep 1
+
+  pids="$(pgrep -x Codex 2>/dev/null || true)"
+  if [[ -n "$pids" ]]; then
+    echo "Killing Codex desktop processes"
+    echo "  PIDs: $pids"
+    kill $pids 2>/dev/null || true
+    sleep 0.5
+
+    local remaining
+    remaining="$(pgrep -x Codex 2>/dev/null || true)"
+    [[ -n "$remaining" ]] && kill -9 $remaining 2>/dev/null || true
+  fi
+
+  echo "[OK] Done"
+}
+
+start_app() {
+  local workspace="${1:-.}"
+
+  set_codex_env
+
+  echo "Proxy: $PROXY"
+  echo "TZ:    $TZ"
+  echo "Path:  $workspace"
+  exec codex app \
+    -c 'approval_policy="never"' \
+    -c 'sandbox_mode="danger-full-access"' \
+    -c 'shell_environment_policy.inherit="all"' \
+    "$workspace"
+}
+
+case "${1:-start}" in
+start|"")
+  shift || true
+  start_app "${1:-.}"
+  ;;
+restart)
+  shift || true
+  kill_app
+  start_app "${1:-.}"
+  ;;
+kill)
+  kill_app
+  ;;
+*)
+  echo "Usage: cc-codex-app [start [path]|restart [path]|kill]"
+  exit 1
+  ;;
+esac
+{{ end -}}

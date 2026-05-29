@@ -24,7 +24,9 @@ export HTTP_PROXY="$PROXY"
 export HTTPS_PROXY="$PROXY"
 export ALL_PROXY="$PROXY"
 export NO_PROXY="localhost,127.0.0.1,::1,.local"
+export TZ="America/New_York"
 echo "Proxy: $PROXY"
+echo "TZ:    $TZ"
 exec codex --dangerously-bypass-approvals-and-sandbox
 ;;
 *)

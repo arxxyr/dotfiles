@@ -27,8 +27,10 @@ $env:HTTP_PROXY = $Proxy
 $env:HTTPS_PROXY = $Proxy
 $env:ALL_PROXY = $Proxy
 $env:NO_PROXY = $NoProxy
+$env:TZ = 'America/New_York'
 
 Write-Host "Proxy: $Proxy"
+Write-Host "TZ:    $($env:TZ)"
 
 $codexExe = Get-Command 'codex' -ErrorAction SilentlyContinue
 if (-not $codexExe) {
