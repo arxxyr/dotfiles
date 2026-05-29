@@ -26,7 +26,11 @@ export ALL_PROXY="$PROXY"
 export NO_PROXY="localhost,127.0.0.1,::1,.local"
 export TMPDIR="$HOME/.claude/tmp"
 export CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1
+export CLAUDE_CODE_EFFORT_LEVEL=max
+export TZ="America/New_York"
 echo "Proxy: $PROXY"
+echo "TZ:    $TZ"
+echo "Effort: max (locked via CLAUDE_CODE_EFFORT_LEVEL)"
 exec claude --dangerously-skip-permissions
 ;;
 *)
