@@ -126,3 +126,5 @@ For the 2026-06-07 Zhongtian Technology / Shanghai Composite 4000 conversation, 
 For the 2026-06-07 recent 1-month A-share and US theme-activity research, read [references/theme-activity-20260607.md](references/theme-activity-20260607.md). Treat it as a dated sector-map case study; refresh rankings and market data before reuse.
 
 For the reusable news/catalyst filter, read [references/news-catalyst-filter.md](references/news-catalyst-filter.md). Use it whenever the user asks whether fresh news changes the trend judgment.
+
+For the 2026-06-07 SPCX listing-window / A-H slow-bottoming scenario, read [references/spcx-slow-bottom-scenario-20260607.md](references/spcx-slow-bottom-scenario-20260607.md). Treat it as a dated macro scenario; refresh A/H/US indexes, VIX, and related news before reuse.
