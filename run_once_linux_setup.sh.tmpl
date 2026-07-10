@@ -88,6 +88,36 @@ elif command -v pacman &>/dev/null; then
     fi
 fi
 
+# vim/vi/editor 统一指向 nvim（系统级：覆盖 sudo/脚本/git 等不走 shell 别名的场景）
+if command -v nvim &>/dev/null; then
+    NVIM_BIN="$(command -v nvim)"
+    if command -v update-alternatives &>/dev/null; then
+        # Debian/Ubuntu 系：alternatives 机制，优先级 100 > nano(40) > vim.tiny(15)
+        for name in vim vi editor; do
+            CURRENT="$(update-alternatives --query "$name" 2>/dev/null | awk '/^Value:/{print $2}')"
+            if [[ "$CURRENT" == "$NVIM_BIN" ]]; then
+                echo "[SKIP] alternatives: $name -> $NVIM_BIN"
+            else
+                echo "[OK] alternatives: $name -> $NVIM_BIN"
+                sudo update-alternatives --install "/usr/bin/$name" "$name" "$NVIM_BIN" 100
+            fi
+        done
+    else
+        # 无 update-alternatives（如 Arch）：/usr/local/bin 符号链接兜底（PATH 优先于 /usr/bin）
+        # editor 是 Debian 特有约定，此处只处理 vim/vi
+        for name in vim vi; do
+            if [[ "$(readlink -f "/usr/local/bin/$name" 2>/dev/null)" == "$(readlink -f "$NVIM_BIN")" ]]; then
+                echo "[SKIP] symlink: /usr/local/bin/$name -> $NVIM_BIN"
+            else
+                echo "[OK] symlink: /usr/local/bin/$name -> $NVIM_BIN"
+                sudo ln -sfn "$NVIM_BIN" "/usr/local/bin/$name"
+            fi
+        done
+    fi
+else
+    echo "[WARN] 未检测到 nvim，跳过 vim/vi/editor 重定向"
+fi
+
 # Oh My Zsh
 if [[ -d "$HOME/.oh-my-zsh" ]]; then
     echo "[SKIP] Oh My Zsh already installed"
