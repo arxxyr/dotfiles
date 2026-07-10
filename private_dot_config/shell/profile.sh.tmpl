@@ -58,6 +58,12 @@ esac
 export PATH="/opt/homebrew/opt/node@24/bin:$PATH"
 {{- end }}
 
+# 默认编辑器（nvim 可用时优先，git/crontab 等依赖 EDITOR）
+if command -v nvim >/dev/null 2>&1; then
+    export EDITOR=nvim
+    export VISUAL=nvim
+fi
+
 # core dump
 ulimit -c unlimited
 
