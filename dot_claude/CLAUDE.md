@@ -119,16 +119,30 @@ cargo fmt --all && cargo clippy --all --all-targets -- -D warnings
 > **强制规则**：每次 `git commit` 前必须先跑 `fmt` + `clippy`，确保零警告后再提交。
 
 ### CI 构建优化
-```bash
-# 1. 增量编译（减少 40%）
-export CARGO_INCREMENTAL=1
 
-# 2. sccache（20 分钟 → 4-6 分钟）
+> **sccache 与增量编译互斥**（sccache 不缓存增量编译单元），按场景分工，不要同时开启：
+
+| 场景 | 策略 |
+|------|------|
+| 本地 dev | 增量编译（Cargo 默认开启），不配 sccache |
+| CI | `CARGO_INCREMENTAL=0` + sccache（20 分钟 → 4-6 分钟） |
+
+```bash
+# 仅 CI 环境
+export CARGO_INCREMENTAL=0
 cargo install sccache
 # .cargo/config.toml: rustc-wrapper = "sccache"
+```
 
-# 3. 定期清理
-rm -rf ~/.cargo/registry ~/.cargo/git
+### 磁盘缓存治理
+
+- **`~/.cargo` 全局缓存**：Cargo 1.88+ 内置自动 GC 且默认开启（长期未用的 registry/git 缓存自动清理），**不要再手动 `rm -rf ~/.cargo/registry`**——只会害下次全量重新下载
+- **各项目 `target/`**：用 cargo-sweep 按策略回收，不要一刀切 `cargo clean`（活跃项目会被打回冷构建）
+
+```bash
+cargo install cargo-sweep
+cargo sweep -r --installed ~/repo/rust   # rustup update 后跑：清掉旧工具链的产物（nightly 用户的主要膨胀源）
+cargo sweep -r --time 30 ~/repo/rust     # 定期跑：清 30 天未更新的产物
 ```
 
 ### 警告拦截（build.warnings，Rust 1.97+）
@@ -396,6 +410,32 @@ package/
 ```
 
 - 默认样式：`rounded=1`、`spacing=15`、边路由 `orthogonal`
+
+---
+
+## 11. Dotfiles 管理（chezmoi）
+
+所有 dotfiles（**包括本文件**）由 chezmoi 管理，源仓库：`~/.local/share/chezmoi`。
+
+**链接拓扑**（权威源只有一份，其余为符号链接，改权威源即全端生效）：
+
+| 内容 | 权威源 | 符号链接 |
+|------|--------|----------|
+| Agent 指令 | `~/.claude/CLAUDE.md`（本文件） | `~/.codex/AGENTS.md` → 本文件 |
+| Agent skills | `~/.agents/skills/` | `~/.claude/skills/*`、`~/.codex/skills/*` |
+
+- **严禁直接修改目标文件**（如 `~/.claude/CLAUDE.md`、`~/.cargo/config.toml`）——下次 `chezmoi apply` 会被源文件覆盖
+- 正确流程：改源文件 → 预览 → 应用 → 提交
+
+```bash
+chezmoi source-path <目标文件>    # 定位源文件，直接编辑它
+chezmoi diff                      # 预览将要应用的变更
+chezmoi apply <目标文件>          # 只应用指定文件，避免顺带覆盖其他漂移
+cd "$(chezmoi source-path)" && git add <源文件> && git commit   # 提交源仓库
+```
+
+- 新文件纳管：`chezmoi add <目标文件>`
+- 机器差异用模板（`*.tmpl` + `.chezmoidata`）处理，不要 fork 多份配置
 
 ---
 
