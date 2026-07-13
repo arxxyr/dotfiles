@@ -1,6 +1,9 @@
-model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "ultra"
 [projects."/home/loosqk/repo/robot/robot-system"]
+trust_level = "trusted"
+
+[projects."/Users/loosqk/.openclaw"]
 trust_level = "trusted"
 
 [tui]
@@ -8,3 +11,4 @@ status_line = ["model-with-reasoning", "git-branch", "context-remaining", "run-s
 
 [tui.model_availability_nux]
 "gpt-5.5" = 2
+"gpt-5.6-sol" = 1
