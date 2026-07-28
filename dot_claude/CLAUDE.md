@@ -131,6 +131,31 @@ cargo install sccache
 rm -rf ~/.cargo/registry ~/.cargo/git
 ```
 
+### 警告拦截（build.warnings，Rust 1.97+）
+
+CI 拒绝警告用 Cargo 原生配置，弃用 `RUSTFLAGS="-D warnings"`：
+
+```toml
+# .cargo/config.toml（可入库，团队统一）
+[build]
+warnings = "deny"    # warn（默认）/ allow / deny
+```
+
+```bash
+CARGO_BUILD_WARNINGS=deny  cargo build --keep-going   # CI 用；--keep-going 一次汇总所有 crate
+CARGO_BUILD_WARNINGS=allow cargo check                # 大重构中静音警告，专心修 error
+```
+
+**换的理由**：`RUSTFLAGS` 进编译指纹，CI/本地两套 fingerprint，target/sccache 缓存互相失效；`build.warnings` 是 Cargo 层对诊断的后处理，不改 rustc 命令行，不动缓存。
+
+**事实澄清**：registry/git 依赖被 Cargo 自动 `--cap-lints allow` 静音，"依赖警告挂 CI" 是讹传；新旧方案实际都只管 local packages（workspace 成员 + path 依赖，含 vendor 成 path 依赖的三方库）。
+
+**边界**：
+- 只拦 lint 类警告；链接器/codegen 等非 lint 警告不受影响
+- MSRV 1.97：低版本 toolchain 静默忽略此配置，入库前先统一版本
+- 本地被 deny 打断时：env 优先于 config 文件，`CARGO_BUILD_WARNINGS=warn` 临时压回
+- 这是全局下限开关，不是 lint 策略；per-lint 渐进（warn→deny）用 `[lints]` 表；clippy 的 `-- -D warnings` 保持不动
+
 ### 构建耗时分析（cargo --timings）
 
 Cargo 1.95+ 把 `--timings` 报告渲染为 SVG：文本可选、可复制、可贴进 PR/issue，适合作为评审证据。
@@ -358,7 +383,7 @@ package/
 | push / PR → main/master/develop | lint → test → build（多平台） |
 | push `v*` 标签 | 上述 + 上传产物 + 创建 Release |
 
-**Rust 项目 CI 顺序**：`cargo fmt --all` → `cargo clippy --all --all-targets -- -D warnings` → `cargo test` → `cargo build`（严格串行，前一步失败则终止）
+**Rust 项目 CI 顺序**：`cargo fmt --all` → `cargo clippy --all --all-targets -- -D warnings` → `cargo test` → `cargo build`（严格串行，前一步失败则终止；test/build 步加 `CARGO_BUILD_WARNINGS=deny`，见 §5 警告拦截）
 
 ---
 
