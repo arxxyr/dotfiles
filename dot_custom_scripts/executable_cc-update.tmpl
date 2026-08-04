@@ -4,6 +4,8 @@ set -euo pipefail
 
 FORCE_IPV4="${FORCE_IPV4:-1}"
 PROXYCHAINS="${PROXYCHAINS_BIN:-proxychains}"
+# /etc 配置里的代理地址在 WSL 随重启漂移，改挂 cc-pc 动态生成的配置
+CONF="$("$HOME/.custom_scripts/cc-pc" --refresh)"
 
 tmp_conf=""
 cleanup() {
@@ -17,10 +19,10 @@ echo 'Acquire::ForceIPv4 "true";' | sudo tee "$tmp_conf" >/dev/null
 fi
 
 echo "[1/3] Updating package index..."
-sudo "$PROXYCHAINS" apt update
+sudo "$PROXYCHAINS" -f "$CONF" apt update
 
 echo "[2/3] Upgrading packages..."
-sudo "$PROXYCHAINS" apt full-upgrade -y
+sudo "$PROXYCHAINS" -f "$CONF" apt full-upgrade -y
 
 echo "[3/3] Cleaning up..."
 sudo apt autoremove --purge -y
@@ -30,7 +32,8 @@ echo "[OK] Done"
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROXY="${PROXY:-http://127.0.0.1:10808}"
+# 默认代理主机统一走 cc-proxy-host（darwin 上等价于 127.0.0.1）；PROXY 可覆盖
+PROXY="${PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):10808}"
 
 export HTTP_PROXY="$PROXY"
 export HTTPS_PROXY="$PROXY"

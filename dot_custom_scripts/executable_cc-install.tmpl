@@ -8,9 +8,11 @@ if [[ $# -eq 0 ]]; then
 fi
 
 PROXYCHAINS="${PROXYCHAINS_BIN:-proxychains}"
+# /etc 配置里的代理地址在 WSL 随重启漂移，改挂 cc-pc 动态生成的配置
+CONF="$("$HOME/.custom_scripts/cc-pc" --refresh)"
 
 echo ">>> 安装: $*"
-sudo "$PROXYCHAINS" apt install -y "$@"
+sudo "$PROXYCHAINS" -f "$CONF" apt install -y "$@"
 
 echo "[OK] Done"
 {{ else if eq .chezmoi.os "darwin" -}}
@@ -22,7 +24,8 @@ if [[ $# -eq 0 ]]; then
     exit 1
 fi
 
-PROXY="${PROXY:-http://127.0.0.1:10808}"
+# 默认代理主机统一走 cc-proxy-host（darwin 上等价于 127.0.0.1）；PROXY 可覆盖
+PROXY="${PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):10808}"
 
 export HTTP_PROXY="$PROXY"
 export HTTPS_PROXY="$PROXY"

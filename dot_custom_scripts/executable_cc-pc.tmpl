@@ -5,13 +5,9 @@
 set -e
 
 if [[ $# -eq 0 ]]; then
-    echo "用法: cc-pc <命令> [参数...]"
+    echo "用法: cc-pc <命令> [参数...]   # 经动态生成的配置透传 proxychains4"
+    echo "     cc-pc --refresh          # 只刷新配置并输出路径（供 sudo proxychains -f 引用）"
     echo "示例: cc-pc chezmoi apply"
-    exit 1
-fi
-
-if ! command -v proxychains4 &>/dev/null; then
-    echo "[FAIL] 未安装 proxychains4"
     exit 1
 fi
 
@@ -33,6 +29,16 @@ tcp_connect_time_out 8000
 [ProxyList]
 socks5 $PROXY_HOST $PROXY_PORT
 EOF
+
+if [[ "$1" == "--refresh" ]]; then
+    echo "$CONF"
+    exit 0
+fi
+
+if ! command -v proxychains4 &>/dev/null; then
+    echo "[FAIL] 未安装 proxychains4"
+    exit 1
+fi
 
 echo "[cc-pc] socks5://${PROXY_HOST}:${PROXY_PORT}" >&2
 exec proxychains4 -f "$CONF" "$@"

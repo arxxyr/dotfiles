@@ -2,7 +2,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROXY="${CLAUDE_PROXY:-http://127.0.0.1:10808}"
+# 默认代理主机按环境探测（WSL NAT 下 127.0.0.1 是虚拟机自己）；CLAUDE_PROXY 可覆盖
+PROXY="${CLAUDE_PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):10808}"
 
 case "${1:-start}" in
 kill)
