@@ -396,7 +396,8 @@ package/
 - `VERSION` 文件内容与产物命名中的版本一致
 
 ### 二进制压缩
-- Linux / Windows：UPX `--best --lzma`（编译型语言适用）
+- Linux：UPX `--best --lzma`（编译型语言适用）
+- Windows：**跳过** —— UPX 加壳的无签名 exe 触发 Defender/SmartScreen 木马误报（`Wacatac`/`Wacapew!ml` 类启发式判定），体积换可用性不划算；根治需 Authenticode 签名证书
 - macOS：跳过（UPX 不支持）
 
 ### 预发布标记
