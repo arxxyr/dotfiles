@@ -27,16 +27,20 @@ $env:HTTP_PROXY = $Proxy
 $env:HTTPS_PROXY = $Proxy
 $env:ALL_PROXY = $Proxy
 $env:NO_PROXY = $NoProxy
+# 与 bash 版 cc-claude 对齐（TMPDIR 除外：POSIX 专属，Windows 上 Node 只认 TMP/TEMP）
+$env:CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = '1'
+$env:CLAUDE_CODE_EFFORT_LEVEL = 'max'
 $env:TZ = 'America/New_York'
 
 Write-Host "Proxy: $Proxy"
 Write-Host "TZ:    $($env:TZ)"
+Write-Host "Effort: max (locked via CLAUDE_CODE_EFFORT_LEVEL)"
 
 $claudeExe = Get-Command 'claude' -ErrorAction SilentlyContinue
 if (-not $claudeExe) {
 $default = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
 if (Test-Path $default) { $claudeExe = $default }
-else { throw 'claude not found. Use -ClaudePath or add to PATH.' }
+else { throw 'claude not found. Add to PATH or install to ~\.local\bin\claude.exe' }
 }
 
 & $claudeExe --dangerously-skip-permissions
