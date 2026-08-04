@@ -16,6 +16,9 @@ zstyle ':omz:update' mode auto
 plugins=(git sudo kubectl history emoji encode64 web-search copypath copyfile copybuffer dirhistory jsontools zsh-syntax-highlighting zsh-autosuggestions zsh-completions)
 source $ZSH/oh-my-zsh.sh
 
+# nvm（Node 版本管理；NVM_DIR 由 shell/profile.sh 导出，安装器禁写 rc，加载器归 chezmoi 管）
+[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+
 # 共享别名与函数
 [[ -f "$HOME/.config/shell/aliases.sh" ]] && source "$HOME/.config/shell/aliases.sh"
 [[ -f "$HOME/.config/shell/functions.sh" ]] && source "$HOME/.config/shell/functions.sh"

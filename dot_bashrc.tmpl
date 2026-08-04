@@ -9,6 +9,10 @@ esac
 # 确保环境变量已加载（非登录 shell 场景）
 [ -z "$SHELL_PROFILE_LOADED" ] && [ -f "$HOME/.config/shell/profile.sh" ] && . "$HOME/.config/shell/profile.sh"
 
+# nvm（Node 版本管理；NVM_DIR 由 shell/profile.sh 导出，安装器禁写 rc，加载器归 chezmoi 管）
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+
 # 历史记录
 HISTCONTROL=ignoreboth
 shopt -s histappend
