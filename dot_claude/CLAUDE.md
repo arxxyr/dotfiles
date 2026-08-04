@@ -278,6 +278,21 @@ if error { bincode::serialize(&payload); }
 struct Payload<'a> { name: &'a str }
 ```
 
+### 热点路径四招（先 profile 再动手）
+
+按普适度排序；前两招零风险，审查时顺手查，后两招先确认边界：
+
+| 招式 | 做法 | 边界 |
+|------|------|------|
+| 删中间集合 | `.collect::<Vec<_>>().iter().sum()` → 直接 `.sum()` | 迭代器惰性，`collect` 才物化分配 |
+| 借用代替分配 | 计数 `HashMap<String,_>` → `HashMap<&str,_>`，仅输出时 `to_string()` | 键借用原始缓冲 → 要求整个输入驻留内存；流式逐行读不能照搬 |
+| entry 合并查找 | `contains_key`+`insert`/`get_mut`（2-3 次哈希）→ `*m.entry(k).or_insert(0) += 1` | 无；clippy `map_entry` 可自动抓 |
+| Rayon map-reduce | `par_lines().fold(HashMap::new, …).reduce(…)`：线程私有 map，最后合并 | 仅大数据量 + 任务独立 + CPU 密集；小任务被调度/合并成本反噬。`par_lines` 与 `&str` 键共享同一前提——整段输入在内存 |
+
+**无序删除**：`Vec::remove(i)` O(n) 整体前移；业务不依赖顺序时用 `swap_remove(i)` O(1) 末尾补位。循环删除时换进来的元素要原地重查（索引不前进）；批量条件删除直接 `retain`/`extract_if`（1.87+），更不易错。
+
+> 所有倍数都出自特定 benchmark，不可外推。顺序：criterion/divan + `black_box` 定位热点 → 删分配、重复计算、多余约束（保序、拥有权）→ 最后才谈并行。
+
 ### 高级优化速查
 | 症状 | 方案 |
 |------|------|
