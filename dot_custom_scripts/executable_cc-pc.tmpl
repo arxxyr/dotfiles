@@ -1,0 +1,39 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+# proxychains 动态包装：/etc/proxychains4.conf 里的代理地址是静态的，
+# WSL 下宿主机 IP 随重启漂移会失效；本包装每次运行时重新生成配置再透传
+set -e
+
+if [[ $# -eq 0 ]]; then
+    echo "用法: cc-pc <命令> [参数...]"
+    echo "示例: cc-pc chezmoi apply"
+    exit 1
+fi
+
+if ! command -v proxychains4 &>/dev/null; then
+    echo "[FAIL] 未安装 proxychains4"
+    exit 1
+fi
+
+PROXY_HOST="$("$HOME/.custom_scripts/cc-proxy-host")"
+PROXY_PORT="10808"
+
+CONF_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/cc-pc"
+CONF="$CONF_DIR/proxychains.conf"
+mkdir -p "$CONF_DIR"
+
+# 与 /etc/proxychains4.conf 语义一致（strict + 静默 + 远端 DNS），仅代理地址动态化
+cat > "$CONF" << EOF
+strict_chain
+quiet_mode
+proxy_dns
+remote_dns_subnet 224
+tcp_read_time_out 15000
+tcp_connect_time_out 8000
+[ProxyList]
+socks5 $PROXY_HOST $PROXY_PORT
+EOF
+
+echo "[cc-pc] socks5://${PROXY_HOST}:${PROXY_PORT}" >&2
+exec proxychains4 -f "$CONF" "$@"
+{{ end -}}
