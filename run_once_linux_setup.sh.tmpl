@@ -2,10 +2,19 @@
 #!/bin/bash
 set -e
 
-# ---------- GitHub release 二进制兜底 ----------
-# 旧发行版源里没有的工具（如 jammy 无 eza/yazi）从 GitHub release 装静态二进制
+# ==================== 通用工具 ====================
 BIN_DIR="$HOME/.local/bin"
 
+# 代理宿主机探测复用 cc-proxy-host（chezmoi 按目标名序先落 dotfiles 再跑本脚本）
+proxy_host() {
+    if [[ -x "$HOME/.custom_scripts/cc-proxy-host" ]]; then
+        "$HOME/.custom_scripts/cc-proxy-host"
+    else
+        echo "127.0.0.1"
+    fi
+}
+
+# GitHub release 静态二进制兜底（cargo / 官方 apt 源不可用时的最后一道）
 install_github_release() {
     local tool="$1"
     local arch suffix url tmp ok=1
@@ -27,7 +36,7 @@ install_github_release() {
     case "$tool" in
         eza|yazi) ;;
         *)
-            echo "[FAIL] $tool: apt 源中不存在且无兜底安装器"
+            echo "[FAIL] $tool: 无兜底安装器"
             return 1
             ;;
     esac
@@ -70,14 +79,114 @@ install_github_release() {
     return 1
 }
 
-# 安装必要工具
+# ==================== Rust 工具链（官方 rustup，nightly） ====================
+install_rust_nightly() {
+    local proxy
+    proxy="http://$(proxy_host):10808"
+
+    # 已装 rustup 但当前进程 PATH 未包含 ~/.cargo/bin 时先加载
+    if ! command -v rustup &>/dev/null && [[ -f "$HOME/.cargo/env" ]]; then
+        source "$HOME/.cargo/env"
+    fi
+
+    if command -v rustup &>/dev/null; then
+        if rustup toolchain list 2>/dev/null | grep -q '^nightly'; then
+            echo "[SKIP] rust nightly already installed"
+        else
+            echo "[INSTALL] rust nightly toolchain..."
+            HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" rustup toolchain install nightly \
+                || rustup toolchain install nightly \
+                || { echo "[FAIL] rust nightly toolchain 安装失败"; return 1; }
+        fi
+        return 0
+    fi
+
+    echo "[INSTALL] rustup <- 官方脚本 sh.rustup.rs（default=nightly）..."
+    # 官方安装方式；整条管道包代理（curl 与 rustup-init 都要联网），失败退回直连
+    if env HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" bash -c \
+            'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly' \
+        || bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly'; then
+        source "$HOME/.cargo/env"
+        echo "[OK] $(rustc --version)"
+        return 0
+    fi
+    echo "[FAIL] rustup 安装失败"
+    return 1
+}
+
+# ==================== eza（cargo 安装，无 cargo 时退回二进制） ====================
+install_eza() {
+    if [[ -x "$BIN_DIR/eza" ]] || command -v eza &>/dev/null; then
+        echo "[SKIP] eza already installed"
+        return 0
+    fi
+    if command -v cargo &>/dev/null; then
+        echo "[INSTALL] eza <- cargo install"
+        # WSL 的 ~/.cargo/config.toml 已按环境裁掉 proxy 行，这里按当前网关显式补上；
+        # 非 WSL 机器该值与配置文件一致，属无害覆盖
+        if CARGO_HTTP_PROXY="http://$(proxy_host):10808" cargo install eza; then
+            echo "[OK] eza -> $HOME/.cargo/bin/eza"
+            return 0
+        fi
+        echo "[WARN] cargo install eza 失败，退回 GitHub release 二进制"
+    else
+        echo "[WARN] 未安装 cargo，eza 退回 GitHub release 二进制"
+    fi
+    install_github_release eza
+}
+
+# ==================== yazi（官方 apt 源 nightly，失败退回二进制） ====================
+install_yazi() {
+    if command -v yazi &>/dev/null || [[ -x "$BIN_DIR/yazi" ]]; then
+        echo "[SKIP] yazi already installed"
+        return 0
+    fi
+
+    local proxy keyring list tmp
+    proxy="http://$(proxy_host):10808"
+    keyring="/usr/share/keyrings/yazi-keyring.gpg"
+    list="/etc/apt/sources.list.d/yazi-nightly.list"
+    echo "[INSTALL] yazi <- 官方 apt 源（nightly）"
+
+    # 仓库托管在 GitHub Pages，直连不稳：curl 先走代理、失败退回直连；
+    # 先落临时文件并校验非空，避免管道失败时给 keyring 写出空文件
+    tmp="$(mktemp)"
+    if ! curl -fsSL --proxy "$proxy" --max-time 30 https://yazi-rs.github.io/builds/yazi-keyring.gpg -o "$tmp" \
+        && ! curl -fsSL --max-time 30 https://yazi-rs.github.io/builds/yazi-keyring.gpg -o "$tmp"; then
+        rm -f "$tmp"
+        echo "[WARN] yazi: keyring 下载失败，退回 GitHub release 二进制"
+        install_github_release yazi
+        return
+    fi
+    if [[ ! -s "$tmp" ]]; then
+        rm -f "$tmp"
+        echo "[WARN] yazi: keyring 为空，退回 GitHub release 二进制"
+        install_github_release yazi
+        return
+    fi
+    sudo install -Dm644 "$tmp" "$keyring"
+    rm -f "$tmp"
+
+    echo "deb [signed-by=$keyring] https://yazi-rs.github.io/builds/ nightly main" | sudo tee "$list" >/dev/null
+
+    # sudo 会剥离代理环境，apt 对该仓库域名单独挂代理；代理不可用时退回直连再试
+    if { sudo apt -o "Acquire::https::Proxy::yazi-rs.github.io=$proxy" update \
+            && sudo apt -o "Acquire::https::Proxy::yazi-rs.github.io=$proxy" install -y -t nightly yazi; } \
+        || { sudo apt update && sudo apt install -y -t nightly yazi; }; then
+        echo "[OK] yazi -> $(command -v yazi)"
+        return 0
+    fi
+    echo "[WARN] yazi: apt 源安装失败，退回 GitHub release 二进制"
+    install_github_release yazi
+}
+
+# ==================== 基础包 ====================
 if command -v apt &>/dev/null; then
+    # 仅放确定在 apt 源内的包；eza/yazi/rust 走下方专用安装段
     PACKAGES=(
         zoxide
         zsh
-        eza
         fzf
-        yazi
         ripgrep
         btop
         jq
@@ -96,6 +205,8 @@ if command -v apt &>/dev/null; then
         fi
     done
 
+    FAILED=()
+
     if [[ ${#MISSING[@]} -gt 0 ]]; then
         APT_UPDATED=0
         # 全新机器 apt 元数据为空时 apt-cache 查不到任何包，先刷新一次
@@ -104,15 +215,14 @@ if command -v apt &>/dev/null; then
             APT_UPDATED=1
         fi
 
-        # 按源内可用性分流：旧发行版（如 jammy）源里没有 eza/yazi，
-        # 混进同一个 apt 事务会因找不到包整单作废，其余包也全装不上
+        # 防御：源里不存在的包单独剔出，避免 apt "一个找不到、整单作废"
         APT_PKGS=()
-        FALLBACK_PKGS=()
+        UNKNOWN_PKGS=()
         for pkg in "${MISSING[@]}"; do
             if apt-cache show "$pkg" &>/dev/null; then
                 APT_PKGS+=("$pkg")
             else
-                FALLBACK_PKGS+=("$pkg")
+                UNKNOWN_PKGS+=("$pkg")
             fi
         done
 
@@ -124,19 +234,22 @@ if command -v apt &>/dev/null; then
             sudo apt install -y "${APT_PKGS[@]}"
         fi
 
-        FAILED=()
-        for pkg in "${FALLBACK_PKGS[@]}"; do
-            if ! install_github_release "$pkg"; then
-                FAILED+=("$pkg")
-            fi
+        for pkg in "${UNKNOWN_PKGS[@]}"; do
+            echo "[WARN] $pkg: apt 源中不存在"
+            FAILED+=("$pkg")
         done
-
-        if [[ ${#FAILED[@]} -gt 0 ]]; then
-            echo "[FAIL] 以下包安装失败: ${FAILED[*]}"
-            exit 1
-        fi
     else
-        echo "[SKIP] All packages already installed"
+        echo "[SKIP] All apt packages already installed"
+    fi
+
+    # 源外组件：rust 官方脚本、eza 走 cargo、yazi 走官方 apt 源
+    install_rust_nightly || FAILED+=("rust-nightly")
+    install_eza || FAILED+=("eza")
+    install_yazi || FAILED+=("yazi")
+
+    if [[ ${#FAILED[@]} -gt 0 ]]; then
+        echo "[FAIL] 以下组件安装失败: ${FAILED[*]}"
+        exit 1
     fi
 
     # Neovim nightly（unstable PPA）
@@ -150,6 +263,7 @@ if command -v apt &>/dev/null; then
     fi
 
 elif command -v pacman &>/dev/null; then
+    # Arch 官方仓库版本足够新，eza/yazi 直接走 pacman；rust 仍用官方 rustup
     PACKAGES=(
         zoxide
         zsh
@@ -177,6 +291,8 @@ elif command -v pacman &>/dev/null; then
     else
         echo "[SKIP] All packages already installed"
     fi
+
+    install_rust_nightly
 
     # Neovim nightly（neovim-nightly-bin from AUR）
     if command -v nvim &>/dev/null && nvim --version 2>/dev/null | head -1 | grep -q 'dev'; then
