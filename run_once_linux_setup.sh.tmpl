@@ -2,6 +2,74 @@
 #!/bin/bash
 set -e
 
+# ---------- GitHub release 二进制兜底 ----------
+# 旧发行版源里没有的工具（如 jammy 无 eza/yazi）从 GitHub release 装静态二进制
+BIN_DIR="$HOME/.local/bin"
+
+install_github_release() {
+    local tool="$1"
+    local arch suffix url tmp ok=1
+
+    if [[ -x "$BIN_DIR/$tool" ]] || command -v "$tool" &>/dev/null; then
+        echo "[SKIP] $tool already installed"
+        return 0
+    fi
+
+    case "$(uname -m)" in
+        x86_64)  arch="x86_64" ;;
+        aarch64) arch="aarch64" ;;
+        *)
+            echo "[FAIL] $tool: 不支持的架构 $(uname -m)"
+            return 1
+            ;;
+    esac
+
+    case "$tool" in
+        eza|yazi) ;;
+        *)
+            echo "[FAIL] $tool: apt 源中不存在且无兜底安装器"
+            return 1
+            ;;
+    esac
+
+    tmp="$(mktemp -d)"
+    case "$tool" in
+        eza)
+            # eza 未发布 aarch64 musl 产物，该架构退回 gnu 版
+            if [[ "$arch" == "aarch64" ]]; then
+                suffix="gnu"
+            else
+                suffix="musl"
+            fi
+            url="https://github.com/eza-community/eza/releases/latest/download/eza_${arch}-unknown-linux-${suffix}.tar.gz"
+            echo "[INSTALL] eza <- ${url##*/}"
+            if curl -fL --retry 3 --connect-timeout 15 -o "$tmp/eza.tar.gz" "$url" \
+                && tar -xzf "$tmp/eza.tar.gz" -C "$tmp" \
+                && install -Dm755 "$tmp/eza" "$BIN_DIR/eza"; then
+                ok=0
+            fi
+            ;;
+        yazi)
+            url="https://github.com/sxyazi/yazi/releases/latest/download/yazi-${arch}-unknown-linux-musl.zip"
+            echo "[INSTALL] yazi <- ${url##*/}"
+            if curl -fL --retry 3 --connect-timeout 15 -o "$tmp/yazi.zip" "$url" \
+                && unzip -qo "$tmp/yazi.zip" -d "$tmp" \
+                && install -Dm755 "$tmp"/yazi-*/yazi "$BIN_DIR/yazi" \
+                && install -Dm755 "$tmp"/yazi-*/ya "$BIN_DIR/ya"; then
+                ok=0
+            fi
+            ;;
+    esac
+    rm -rf "$tmp"
+
+    if [[ $ok -eq 0 && -x "$BIN_DIR/$tool" ]]; then
+        echo "[OK] $tool -> $BIN_DIR/$tool"
+        return 0
+    fi
+    echo "[FAIL] $tool: 下载或安装失败（GitHub 直连不通时请在 proxychains 环境下重跑 chezmoi apply）"
+    return 1
+}
+
 # 安装必要工具
 if command -v apt &>/dev/null; then
     PACKAGES=(
@@ -14,6 +82,8 @@ if command -v apt &>/dev/null; then
         btop
         jq
         wget
+        curl
+        unzip
         connect-proxy
         proxychains4
         software-properties-common
@@ -27,9 +97,44 @@ if command -v apt &>/dev/null; then
     done
 
     if [[ ${#MISSING[@]} -gt 0 ]]; then
-        echo "[INSTALL] ${MISSING[*]}"
-        sudo apt update -y
-        sudo apt install -y "${MISSING[@]}"
+        APT_UPDATED=0
+        # 全新机器 apt 元数据为空时 apt-cache 查不到任何包，先刷新一次
+        if ! ls /var/lib/apt/lists/*Packages* &>/dev/null; then
+            sudo apt update -y
+            APT_UPDATED=1
+        fi
+
+        # 按源内可用性分流：旧发行版（如 jammy）源里没有 eza/yazi，
+        # 混进同一个 apt 事务会因找不到包整单作废，其余包也全装不上
+        APT_PKGS=()
+        FALLBACK_PKGS=()
+        for pkg in "${MISSING[@]}"; do
+            if apt-cache show "$pkg" &>/dev/null; then
+                APT_PKGS+=("$pkg")
+            else
+                FALLBACK_PKGS+=("$pkg")
+            fi
+        done
+
+        if [[ ${#APT_PKGS[@]} -gt 0 ]]; then
+            echo "[INSTALL] apt: ${APT_PKGS[*]}"
+            if [[ $APT_UPDATED -eq 0 ]]; then
+                sudo apt update -y
+            fi
+            sudo apt install -y "${APT_PKGS[@]}"
+        fi
+
+        FAILED=()
+        for pkg in "${FALLBACK_PKGS[@]}"; do
+            if ! install_github_release "$pkg"; then
+                FAILED+=("$pkg")
+            fi
+        done
+
+        if [[ ${#FAILED[@]} -gt 0 ]]; then
+            echo "[FAIL] 以下包安装失败: ${FAILED[*]}"
+            exit 1
+        fi
     else
         echo "[SKIP] All packages already installed"
     fi
