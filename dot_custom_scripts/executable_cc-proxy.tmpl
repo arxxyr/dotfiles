@@ -1,8 +1,6 @@
 {{- if ne .chezmoi.os "windows" -}}
 #!/usr/bin/env bash
 
-PROXY="${1:-http://127.0.0.1:10808}"
-
 case "${1:-on}" in
 off)
     # 环境变量
@@ -16,7 +14,20 @@ off)
     echo "[OK] Proxy disabled"
     ;;
 *)
-    [[ "$1" == "on" ]] && PROXY="http://127.0.0.1:10808" || PROXY="${1:-http://127.0.0.1:10808}"
+    # 默认代理主机：代理通常跑在本机；但 WSL 里 127.0.0.1 是虚拟机自己——
+    # NAT 模式下宿主机是默认网关（IP 随重启漂移，必须动态取），
+    # mirrored 模式下 127.0.0.1 可直通宿主机
+    _cc_host="127.0.0.1"
+    if [[ -n "$WSL_DISTRO_NAME" ]] || grep -qi microsoft /proc/version 2>/dev/null; then
+        # 旧版 WSL 没有 wslinfo 命令，但也只有 NAT 模式，空输出同样落到网关分支
+        if [[ "$(wslinfo --networking-mode 2>/dev/null)" != "mirrored" ]]; then
+            _cc_gw="$(ip route show default 2>/dev/null | awk '{print $3; exit}')"
+            [[ -n "$_cc_gw" ]] && _cc_host="$_cc_gw"
+        fi
+    fi
+    _cc_default="http://${_cc_host}:10808"
+
+    [[ "$1" == "on" ]] && PROXY="$_cc_default" || PROXY="${1:-$_cc_default}"
 
     # 环境变量
     export HTTP_PROXY="$PROXY"
@@ -50,7 +61,7 @@ off)
         echo "[WARN] 未找到 SSH 代理工具（需要 connect / ncat / connect-proxy）"
     fi
 
-    unset _cc_tmp _cc_port _cc_host
+    unset _cc_tmp _cc_port _cc_host _cc_gw _cc_default
     echo "[OK] Proxy set to $PROXY"
     ;;
 esac
