@@ -1,4 +1,4 @@
-{{- if ne .chezmoi.os "windows" -}}
+{{- if eq .chezmoi.os "linux" -}}
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -7,6 +7,8 @@ set -euo pipefail
 # cc-synctime -5 (UTC-5, New York)
 # cc-synctime 0 (UTC)
 # cc-synctime (default: UTC+8)
+#
+# 代理说明：NTP 走 UDP，不经 HTTP 代理，服务器列表已含国内源，无需接 cc-proxy-host
 
 OFFSET="${1:-8}"
 
@@ -39,12 +41,22 @@ echo "[1/6] Setting timezone: $TZ (UTC${SIGN}${OFFSET})"
 sudo timedatectl set-timezone "$TZ"
 
 echo "[2/6] Installing chrony..."
+if command -v apt-get &>/dev/null; then
 sudo apt-get update -y -qq
 sudo apt-get install -y -qq chrony
 sudo apt-get install -y -qq ntpdate 2>/dev/null || sudo apt-get install -y -qq ntpsec-ntpdate 2>/dev/null || true
+elif command -v pacman &>/dev/null; then
+sudo pacman -S --noconfirm --needed chrony
+else
+echo "[ERROR] 未识别的包管理器（支持 apt/pacman）"
+exit 1
+fi
 
 echo "[3/6] Configuring NTP sources..."
-sudo tee /etc/chrony/chrony.conf >/dev/null <<'CONF'
+# Debian 系配置在 /etc/chrony/chrony.conf，Arch 在 /etc/chrony.conf
+CHRONY_CONF="/etc/chrony/chrony.conf"
+[[ -d /etc/chrony ]] || CHRONY_CONF="/etc/chrony.conf"
+sudo tee "$CHRONY_CONF" >/dev/null <<'CONF'
 driftfile /var/lib/chrony/chrony.drift
 server time.cloudflare.com iburst
 server ntp.aliyun.com iburst
@@ -55,10 +67,19 @@ rtcsync
 log tracking measurements statistics
 logdir /var/log/chrony
 CONF
+sudo mkdir -p /var/log/chrony
 
 echo "[4/6] Restarting chrony..."
-sudo systemctl enable --now chrony
-sudo systemctl restart chrony
+# Debian 系服务名 chrony，Arch 为 chronyd
+SVC_STARTED=0
+for svc in chrony chronyd; do
+if sudo systemctl enable --now "$svc" 2>/dev/null; then
+sudo systemctl restart "$svc"
+SVC_STARTED=1
+break
+fi
+done
+[[ $SVC_STARTED -eq 1 ]] || echo "[WARN] chrony 服务未能启动"
 sudo systemctl stop systemd-timesyncd 2>/dev/null || true
 sudo systemctl disable systemd-timesyncd 2>/dev/null || true
 
@@ -68,7 +89,7 @@ sudo ntpdate -u time.cloudflare.com 2>/dev/null || \
 sudo ntpdate -u ntp.aliyun.com 2>/dev/null || \
 sudo ntpdate -u pool.ntp.org 2>/dev/null || true
 
-# Write to hardware clock if not in container
+# Write to hardware clock if not in container (WSL 下 systemd-detect-virt -c 返回 wsl，自动跳过)
 virt="$(systemd-detect-virt -c 2>/dev/null || true)"
 if [[ "$virt" == "none" || -z "$virt" ]]; then
 sudo hwclock --systohc 2>/dev/null || true
