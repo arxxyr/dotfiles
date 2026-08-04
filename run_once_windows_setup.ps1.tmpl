@@ -41,6 +41,37 @@ if ($profileContent -notlike '*chezmoi custom scripts*') {
 } else {
     Write-Host "[SKIP] Aliases already exist"
 }
+
+# Rust 工具链（官方 rustup-init，nightly）；Windows 代理在本机，127.0.0.1 直用
+$rustProxy = 'http://127.0.0.1:10808'
+if (Get-Command rustup -ErrorAction SilentlyContinue) {
+    $toolchains = rustup toolchain list 2>$null
+    if ($toolchains -match '^nightly') {
+        Write-Host "[SKIP] rust nightly already installed"
+    } else {
+        Write-Host "[INSTALL] rust nightly toolchain..."
+        $env:HTTPS_PROXY = $rustProxy; $env:HTTP_PROXY = $rustProxy
+        rustup toolchain install nightly
+        Remove-Item Env:\HTTPS_PROXY, Env:\HTTP_PROXY -ErrorAction SilentlyContinue
+    }
+} else {
+    Write-Host "[INSTALL] rustup <- 官方 rustup-init.exe（default=nightly）..."
+    $rustupInit = Join-Path $env:TEMP 'rustup-init.exe'
+    # 官方下载地址；先走代理、失败退回直连
+    curl.exe -fsSL --proxy $rustProxy --max-time 60 https://win.rustup.rs/x86_64 -o $rustupInit 2>$null
+    if (-not (Test-Path $rustupInit) -or (Get-Item $rustupInit).Length -eq 0) {
+        curl.exe -fsSL --max-time 60 https://win.rustup.rs/x86_64 -o $rustupInit 2>$null
+    }
+    if ((Test-Path $rustupInit) -and (Get-Item $rustupInit).Length -gt 0) {
+        $env:HTTPS_PROXY = $rustProxy; $env:HTTP_PROXY = $rustProxy
+        & $rustupInit -y --default-toolchain nightly
+        Remove-Item Env:\HTTPS_PROXY, Env:\HTTP_PROXY -ErrorAction SilentlyContinue
+        Remove-Item $rustupInit -ErrorAction SilentlyContinue
+        Write-Host "[OK] rustup installed (default=nightly)"
+    } else {
+        Write-Host "[FAIL] rustup-init.exe 下载失败（检查代理后重跑 chezmoi apply）"
+    }
+}
 {{- else -}}
 #!/bin/sh
 echo "[SKIP] Not Windows"

@@ -36,6 +36,28 @@ for pkg in "${PACKAGES[@]}"; do
     fi
 done
 
+# Rust 工具链（官方 rustup，nightly）；macOS 代理在本机，127.0.0.1 直用
+if ! command -v rustup &>/dev/null && [[ -f "$HOME/.cargo/env" ]]; then
+    source "$HOME/.cargo/env"
+fi
+if command -v rustup &>/dev/null; then
+    if rustup toolchain list 2>/dev/null | grep -q '^nightly'; then
+        echo "[SKIP] rust nightly already installed"
+    else
+        echo "[INSTALL] rust nightly toolchain..."
+        HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" rustup toolchain install nightly \
+            || rustup toolchain install nightly
+    fi
+else
+    echo "[INSTALL] rustup <- 官方脚本 sh.rustup.rs（default=nightly）..."
+    # 整条管道包代理（curl 与 rustup-init 都要联网），失败退回直连
+    env HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" bash -c \
+            'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly' \
+        || bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly'
+    source "$HOME/.cargo/env"
+    echo "[OK] $(rustc --version)"
+fi
+
 # Neovim nightly（--HEAD 从 git 源码构建）
 if brew list --head neovim &>/dev/null 2>&1; then
     echo "[SKIP] neovim (HEAD) already installed"
