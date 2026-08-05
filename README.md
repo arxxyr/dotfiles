@@ -1,90 +1,86 @@
 # dotfiles
 
-English | [简体中文](README.zh-CN.md)
+简体中文 | [English](README.en.md)
 
-Managed with [chezmoi](https://www.chezmoi.io/). Cross-platform (Linux / macOS / Windows).
+使用 [chezmoi](https://www.chezmoi.io/) 管理，跨平台（Linux / macOS / Windows）。
 
 ```bash
 sh -c "$(curl -fsLS get.chezmoi.io/lb)"
 ```
 
-## Quick Start
+## 快速开始
 
-### New Machine (One Command)
+### 新机器（一条命令）
 
 ```bash
 chezmoi init --apply git@github.com:arxxyr/dotfiles.git
 ```
 
-### Daily Usage
+### 日常使用
 
 ```bash
-chezmoi add ~/.zshrc              # Config changed? Auto commit & push
-chezmoi add ~/.config/xxx/conf    # Add new config
-chezmoi diff                      # See what changed
+chezmoi add ~/.zshrc              # 配置有改动？自动提交并推送
+chezmoi add ~/.config/xxx/conf    # 纳管新配置
+chezmoi diff                      # 查看待应用的变更
 ```
 
-## Automated Setup (run_once)
+## 自动化安装（run_once）
 
-`chezmoi init --apply` triggers per-OS `run_once_*` scripts that install the full toolchain.
-All network installs go through the proxy (WSL: gateway auto-detected via `cc-proxy-host`;
-other platforms: `127.0.0.1:10808`) and fall back to a direct connection on failure.
-Every step is idempotent — already-installed tools are skipped.
+`chezmoi init --apply` 会触发按操作系统区分的 `run_once_*` 脚本，自动安装完整工具链。
+所有联网安装均走代理（WSL：经 `cc-proxy-host` 运行时探测网关；其余平台：`127.0.0.1:10808`），
+失败自动退回直连。每一步幂等——已安装的组件直接跳过。
 
-| Component | Ubuntu/Debian (apt) | Arch (pacman) | macOS (brew) | Windows |
+| 组件 | Ubuntu/Debian (apt) | Arch (pacman) | macOS (brew) | Windows |
 |---|---|---|---|---|
-| Base CLI (zsh/fzf/ripgrep/btop/jq/zoxide/git/…) | apt | pacman | brew | — (CLI work lives in WSL) |
-| SSH tunnel helper | `netcat-openbsd` (`nc -X`) | `openbsd-netcat` | `connect` (mac-only, keep) | — |
-| Rust nightly | rustup official script, `--no-modify-path` | same | same | `rustup-init.exe` |
-| uv | official script, `UV_NO_MODIFY_PATH=1` | pacman | official script | official `install.ps1` |
-| eza | `cargo install` → GitHub release fallback | pacman | brew | — |
-| yazi | official apt repo (nightly) → binary fallback | pacman | brew | — |
-| Node.js LTS | official nvm script, `PROFILE=/dev/null` | same | brew `node` | winget `OpenJS.NodeJS.LTS` |
-| Codex CLI | `npm install -g @openai/codex` | same | same | same |
-| Claude Code | official installer (static binary → env proxy required) | same | same | official `install.ps1` |
-| Neovim nightly | unstable PPA + vim/vi/editor alternatives | AUR `neovim-nightly-bin` (needs yay/paru) | `brew --HEAD` | not installed |
-| Oh My Zsh + plugins | git clone | same | same | — |
-| Git / PowerShell 7 / Windows Terminal / PowerToys | — | — | — | winget with `--proxy` |
+| 基础 CLI（zsh/fzf/ripgrep/btop/jq/zoxide/git/…） | apt | pacman | brew | —（终端活在 WSL 干） |
+| SSH 打洞工具 | `netcat-openbsd`（`nc -X`） | `openbsd-netcat` | `connect`（mac 专属保留） | — |
+| Rust nightly | rustup 官方脚本，`--no-modify-path` | 同左 | 同左 | `rustup-init.exe` |
+| uv | 官方脚本，`UV_NO_MODIFY_PATH=1` | pacman | 官方脚本 | 官方 `install.ps1` |
+| eza | `cargo install` → GitHub release 兜底 | pacman | brew | — |
+| yazi | 官方 apt 源（nightly）→ 二进制兜底 | pacman | brew | — |
+| Node.js LTS | 官方 nvm 脚本，`PROFILE=/dev/null` | 同左 | brew `node` | winget `OpenJS.NodeJS.LTS` |
+| Codex CLI | `npm install -g @openai/codex` | 同左 | 同左 | 同左 |
+| Claude Code | 官方安装器（静态二进制 → 必须 env 代理） | 同左 | 同左 | 官方 `install.ps1` |
+| Neovim nightly | unstable PPA + vim/vi/editor alternatives | AUR `neovim-nightly-bin`（需 yay/paru） | `brew --HEAD` | 不安装 |
+| Oh My Zsh + 插件 | git clone | 同左 | 同左 | — |
+| Git / PowerShell 7 / Windows Terminal / PowerToys | — | — | — | winget 带 `--proxy` |
 
-Conventions baked into the scripts:
+脚本内置的约定：
 
-- Installers must never touch managed rc files — PATH/env bootstrap lives in
-  `~/.config/shell/profile.sh` (rustup `--no-modify-path`, `UV_NO_MODIFY_PATH=1`,
-  nvm `PROFILE=/dev/null`).
-- Windows winget proxy needs the admin setting `ProxyCommandLineOptions`; the script
-  checks it first and triggers a one-time UAC elevation when missing.
-- Windows deliberately skips nvim and the fzf/rg/eza/zoxide/yazi CLI family.
-- apt installs are partitioned against unknown packages, so one missing name cannot
-  void the whole transaction; failed components are collected and reported at the end.
+- 安装器一律不许碰纳管 rc 文件——PATH/env 引导统一放在
+  `~/.config/shell/profile.sh`（rustup `--no-modify-path`、`UV_NO_MODIFY_PATH=1`、
+  nvm `PROFILE=/dev/null`）。
+- Windows 的 winget 代理受管理员设置 `ProxyCommandLineOptions` 管控；脚本先查状态，
+  缺失时触发一次性 UAC 提权启用。
+- Windows 刻意不装 nvim 与 fzf/rg/eza/zoxide/yazi 等 CLI 族。
+- apt 安装先按包是否存在分区，单个包名缺失不会拖垮整笔事务；失败组件汇总后统一报错。
 
-## Bootstrap (manual leftovers)
-
-The few things `run_once` does not manage:
+## 手动引导（run_once 不管的部分）
 
 ```bash
-# (optional) Force apt to use IPv4 on flaky IPv6 networks
+# （可选）IPv6 不稳的网络强制 apt 走 IPv4
 echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 > /dev/null
 
-# WezTerm (Linux; official fury repo)
+# WezTerm（Linux；官方 fury 源）
 curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
 echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list
 sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg
 sudo apt update && sudo apt install -y wezterm-nightly
 sudo update-alternatives --config x-terminal-emulator
 
-# pip mirror (China)
+# pip 国内镜像
 pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple
 ```
 
-### Arch Linux: AUR helper (needed for neovim-nightly-bin)
+### Arch Linux：AUR helper（neovim-nightly-bin 需要）
 
 ```bash
 sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
 ```
 
-### Optional: full dev toolchain (embedded / OpenWrt builds)
+### 可选：完整开发工具链（嵌入式 / OpenWrt 编译）
 
-Not part of the managed setup — install on build machines only:
+不属于纳管范围——仅编译机需要：
 
 ```bash
 sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 \
@@ -98,96 +94,95 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
   xmlto xsel xxd zlib1g-dev zstd
 ```
 
-## What's Managed
+## 纳管清单
 
-| Config | Path | Description |
+| 配置 | 路径 | 说明 |
 |---|---|---|
-| zsh | `~/.zshrc`, `~/.p10k.zsh` | Zsh + Powerlevel10k (loads nvm) |
-| bash | `~/.bashrc` | Bash config (loads nvm + completion) |
-| shell | `~/.config/shell/profile.sh` | Shared PATH/env bootstrap (cargo, nvm, uv, custom scripts) |
-| claude | `~/.claude/` | Claude Code settings (templated: WSL render drops hardcoded proxy) |
-| codex | `~/.codex/AGENTS.md` | Codex instructions (symlink to Claude's CLAUDE.md) |
-| agents | `~/.agents/skills/` | Shared agent skills (claude / codex) |
-| cargo | `~/.cargo/config.toml` | Rust cargo config (templated: no proxy line on WSL) |
-| kitty | `~/.config/kitty/` | Kitty terminal |
-| alacritty | `~/.config/alacritty/` | Alacritty terminal |
-| wezterm | `~/.config/wezterm/` | WezTerm terminal |
-| starship | `~/.config/starship.toml` | Starship prompt |
+| zsh | `~/.zshrc`、`~/.p10k.zsh` | Zsh + Powerlevel10k（含 nvm 加载器） |
+| bash | `~/.bashrc` | Bash 配置（含 nvm 加载器 + 补全） |
+| shell | `~/.config/shell/profile.sh` | 共享 PATH/env 引导（cargo、nvm、uv、自定义脚本） |
+| claude | `~/.claude/` | Claude Code 配置（模板化：WSL 渲染裁掉写死的代理） |
+| codex | `~/.codex/AGENTS.md` | Codex 指令（符号链接到 Claude 的 CLAUDE.md） |
+| agents | `~/.agents/skills/` | 共享 agent skills（claude / codex 共用） |
+| cargo | `~/.cargo/config.toml` | Rust cargo 配置（模板化：WSL 渲染无 proxy 行） |
+| kitty | `~/.config/kitty/` | Kitty 终端 |
+| alacritty | `~/.config/alacritty/` | Alacritty 终端 |
+| wezterm | `~/.config/wezterm/` | WezTerm 终端 |
+| starship | `~/.config/starship.toml` | Starship 提示符 |
 | lazygit | `~/.config/lazygit/` | Lazygit TUI |
-| neofetch | `~/.config/neofetch/` | Neofetch + custom ASCII art |
-| pip | `~/.config/pip/pip.conf` | Pip mirror config |
+| neofetch | `~/.config/neofetch/` | Neofetch + 自定义 ASCII art |
+| pip | `~/.config/pip/pip.conf` | pip 镜像配置 |
 
-## Custom Scripts
+## 自定义脚本
 
-All in `~/.custom_scripts/`, cross-platform (Linux / macOS / Windows).
+全部位于 `~/.custom_scripts/`，跨平台（Linux / macOS / Windows）。
 
-Proxy host is a single source of truth: `cc-proxy-host` prints the right address
-(WSL NAT → default gateway, detected at runtime; everywhere else → `127.0.0.1`).
-Every other script builds on it. Env-var layer stays `http://` (wget/pip/Node
-compatible); proxychains and SSH tunneling use socks5.
+代理宿主机是单一事实来源：`cc-proxy-host` 输出正确地址（WSL NAT → 运行时探测默认网关；
+其余环境 → `127.0.0.1`），其他脚本都基于它构建。环境变量层保持 `http://`
+（wget/pip/Node 兼容）；proxychains 与 SSH 打洞层走 socks5。
 
-| Command | Description |
+| 命令 | 说明 |
 |---|---|
-| `cc-proxy-host` | Print proxy host (WSL NAT → gateway, else 127.0.0.1) |
-| `cc-claude [kill]` | Launch Claude Code with proxy / kill all Claude processes |
-| `cc-codex [kill]` | Launch Codex CLI with proxy |
-| `cc-codex-app` | macOS: set proxy env (launchctl) for Codex desktop app |
-| `source cc-proxy [off]` | Set/unset proxy env + git proxy for current shell |
-| `cc-pc <cmd>` | Run command through proxychains with dynamically generated conf |
-| `cc-install <pkg>…` | Install packages via proxied apt / brew |
-| `cc-update` | System update (apt / brew / winget) |
-| `cc-synctime [offset]` | Sync time and set timezone (NTP is UDP — no proxy involved) |
+| `cc-proxy-host` | 输出代理宿主机（WSL NAT → 网关，否则 127.0.0.1） |
+| `cc-claude [kill]` | 带代理启动 Claude Code / 杀掉全部 Claude 进程 |
+| `cc-codex [kill]` | 带代理启动 Codex CLI |
+| `cc-codex-app` | macOS：给 Codex 桌面 App 注入代理环境（launchctl） |
+| `source cc-proxy [off]` | 当前 shell 设置/清除代理 env + git 代理 |
+| `cc-pc <cmd>` | 经动态生成配置的 proxychains 执行命令 |
+| `cc-install <包>…` | 走代理的 apt / brew 安装 |
+| `cc-update` | 系统更新（apt / brew / winget） |
+| `cc-synctime [时区偏移]` | 同步时间并设置时区（NTP 是 UDP，不涉及代理） |
 
 ```bash
-cc-claude                    # Start Claude with proxy (host auto-detected)
-source cc-proxy              # Enable proxy env in current shell
-source cc-proxy off          # Disable proxy
-cc-pc git clone <url>        # One-off command through proxychains
-cc-install btop              # Proxied apt/brew install
-cc-update                    # apt / brew / winget upgrade
-cc-synctime                  # UTC+8 (default); cc-synctime -5 → New York
+cc-claude                    # 带代理启动 Claude（宿主机自动探测）
+source cc-proxy              # 当前 shell 启用代理 env
+source cc-proxy off          # 关闭代理
+cc-pc git clone <url>        # 单次命令走 proxychains
+cc-install btop              # 走代理的 apt/brew 安装
+cc-update                    # apt / brew / winget 升级
+cc-synctime                  # UTC+8（默认）；cc-synctime -5 → 纽约
 ```
 
-## Cheat Sheet
+## 速查
 
 ```bash
-# SSH permissions
+# SSH 权限
 chmod 0700 ~/.ssh
 chmod 0644 ~/.ssh/authorized_keys
 chmod 0644 ~/.ssh/id_ed25519.pub
 chmod 0600 ~/.ssh/id_ed25519
 
-# Git proxy
+# Git 代理
 git config --global http.proxy http://127.0.0.1:1080
 git config --global https.proxy http://127.0.0.1:1080
-# Unset
+# 取消
 git config --global --unset http.proxy
 git config --global --unset https.proxy
 
-# Git credential store
+# Git 凭据存储
 git config --global credential.helper store
 
-# Remove CUDA
+# 卸载 CUDA
 sudo apt --purge remove "*cuda*" "*cublas*" "*cufft*" "*cufile*" "*curand*" \
   "*cusolver*" "*cusparse*" "*gds-tools*" "*npp*" "*nvjpeg*" "nsight*" "*nvvm*"
 
-# Remove NVIDIA drivers
+# 卸载 NVIDIA 驱动
 sudo apt --purge remove "*nvidia*" "libxnvctrl*"
 sudo apt autoremove -y
 sudo apt install linux-headers-$(uname -r)
 ```
 
-## Structure
+## 仓库结构
 
 ```
 dotfiles/
-├── dot_*                            # Dotfiles (chezmoi naming)
-├── private_dot_config/              # ~/.config/ contents
-├── dot_custom_scripts/              # Cross-platform scripts (.tmpl)
-├── dot_agents/skills/               # Shared agent skills (claude/codex symlink here)
-├── dot_local/bin/create_env         # ~/.local/bin/env placeholder (uv PATH bootstrap)
-├── .chezmoiignore.tmpl              # OS-specific file filtering
-├── run_once_darwin_setup.sh.tmpl    # First-run setup (macOS)
-├── run_once_linux_setup.sh.tmpl     # First-run setup (Linux)
-└── run_once_windows_setup.ps1.tmpl  # First-run setup (Windows)
+├── dot_*                            # dotfiles（chezmoi 命名规则）
+├── private_dot_config/              # ~/.config/ 内容
+├── dot_custom_scripts/              # 跨平台脚本（.tmpl）
+├── dot_agents/skills/               # 共享 agent skills（claude/codex 符号链接至此）
+├── dot_local/bin/create_env         # ~/.local/bin/env 占位（uv PATH 引导）
+├── .chezmoiignore.tmpl              # 按操作系统过滤文件
+├── run_once_darwin_setup.sh.tmpl    # 首次运行安装（macOS）
+├── run_once_linux_setup.sh.tmpl     # 首次运行安装（Linux）
+└── run_once_windows_setup.ps1.tmpl  # 首次运行安装（Windows）
 ```
