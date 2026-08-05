@@ -42,8 +42,66 @@ if ($profileContent -notlike '*chezmoi custom scripts*') {
     Write-Host "[SKIP] Aliases already exist"
 }
 
-# 本机代理（xray mixed 入站），rust/uv 安装段共用；Windows 代理在本机，127.0.0.1 直用
+# 本机代理（xray mixed 入站），winget/rust/uv/codex/claude 安装段共用；
+# Windows 代理在本机，127.0.0.1 直用
 $proxy = 'http://127.0.0.1:10808'
+
+# ==================== winget：代理初始化 + 基础包 ====================
+# ProxyCommandLineOptions 是管理员设置，首次启用需 UAC 提权确认；
+# 未启用时 winget install 带 --proxy 会直接报错，故先查状态再决定
+$wingetProxyEnabled = $false
+try {
+    $adminSettings = (winget settings export 2>$null | ConvertFrom-Json).adminSettings
+    $wingetProxyEnabled = ($adminSettings.ProxyCommandLineOptions -eq $true)
+} catch {}
+if ($wingetProxyEnabled) {
+    Write-Host "[SKIP] winget ProxyCommandLineOptions already enabled"
+} else {
+    Write-Host "[ADMIN] 启用 winget 代理选项（弹出 UAC，请确认）..."
+    try {
+        Start-Process -Verb RunAs -Wait -FilePath 'winget' -ArgumentList 'settings','--enable','ProxyCommandLineOptions'
+        $adminSettings = (winget settings export 2>$null | ConvertFrom-Json).adminSettings
+        $wingetProxyEnabled = ($adminSettings.ProxyCommandLineOptions -eq $true)
+    } catch {}
+    if ($wingetProxyEnabled) {
+        Write-Host "[OK] winget ProxyCommandLineOptions enabled"
+    } else {
+        Write-Host "[WARN] winget 代理选项未启用（UAC 被取消？），后续安装退回直连"
+    }
+}
+
+# 基础包（Windows 不装 nvim 与 fzf/rg/eza/zoxide/yazi 等 CLI 族，终端活在 WSL 干）。
+# Cmd 探测优先于 winget list：官网 msi 手装的 Node 无 winget 源映射，只查 list 会叠装
+$WINGET_PKGS = @(
+    @{ Id = 'Git.Git';                   Cmd = 'git'  },
+    @{ Id = 'OpenJS.NodeJS.LTS';         Cmd = 'node' },
+    @{ Id = 'Microsoft.PowerShell';      Cmd = 'pwsh' },
+    @{ Id = 'Microsoft.WindowsTerminal'; Cmd = 'wt'   },
+    @{ Id = 'Microsoft.PowerToys';       Cmd = $null  }
+)
+foreach ($pkg in $WINGET_PKGS) {
+    if ($pkg.Cmd -and (Get-Command $pkg.Cmd -ErrorAction SilentlyContinue)) {
+        Write-Host "[SKIP] $($pkg.Id) already installed"
+        continue
+    }
+    if (winget list --exact --id $pkg.Id 2>$null | Select-String -SimpleMatch -Quiet $pkg.Id) {
+        Write-Host "[SKIP] $($pkg.Id) already installed"
+        continue
+    }
+    Write-Host "[INSTALL] $($pkg.Id) <- winget..."
+    $wingetArgs = @('install', '--exact', '--id', $pkg.Id, '--source', 'winget', '--silent',
+                    '--accept-package-agreements', '--accept-source-agreements')
+    if ($wingetProxyEnabled) {
+        winget @wingetArgs --proxy $proxy
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[WARN] $($pkg.Id) 代理安装失败，退回直连重试..."
+            winget @wingetArgs
+        }
+    } else {
+        winget @wingetArgs
+    }
+    if ($LASTEXITCODE -ne 0) { Write-Host "[FAIL] $($pkg.Id) 安装失败" }
+}
 
 # Rust 工具链（官方 rustup-init，nightly）
 if (Get-Command rustup -ErrorAction SilentlyContinue) {
@@ -97,15 +155,7 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     }
 }
 
-# Node.js LTS（官方 winget 包 OpenJS.NodeJS.LTS；winget 走系统代理设置）
-if (Get-Command node -ErrorAction SilentlyContinue) {
-    Write-Host "[SKIP] node already installed"
-} else {
-    Write-Host "[INSTALL] node LTS <- winget OpenJS.NodeJS.LTS..."
-    winget install --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
-}
-
-# Codex CLI（npm 全局）；刚装完 node 时当前会话 PATH 未刷新，兜底用安装目录全路径
+# Codex CLI（npm 全局；node 由上方 winget 基础包段提供）；刚装完 node 时当前会话 PATH 未刷新，兜底用安装目录全路径
 if (Get-Command codex -ErrorAction SilentlyContinue) {
     Write-Host "[SKIP] codex already installed"
 } else {
