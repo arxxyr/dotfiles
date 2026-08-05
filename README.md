@@ -39,7 +39,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
   libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
   libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
   neofetch net-tools ninja-build p7zip p7zip-full patch pkgconf proxychains4 python3 \
-  python3-dev python3-docutils python3-pip python3-ply python3-pyelftools qemu-utils ranger \
+  python3-dev python3-docutils python3-pip python3-ply python3-pyelftools qemu-utils \
   re2c ripgrep rsync scons squashfs-tools subversion swig texinfo uglifyjs unzip upx-ucl vim \
   wget xmlto xsel xxd zlib1g-dev zoxide zsh zstd
 
@@ -98,7 +98,6 @@ sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/ya
 | alacritty | `~/.config/alacritty/` | Alacritty terminal |
 | wezterm | `~/.config/wezterm/` | WezTerm terminal |
 | lazygit | `~/.config/lazygit/` | Lazygit TUI |
-| ranger | `~/.config/ranger/` | Ranger file manager |
 | neofetch | `~/.config/neofetch/` | Neofetch + custom ASCII art |
 | pip | `~/.config/pip/pip.conf` | Pip mirror config |
 
