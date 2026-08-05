@@ -12,6 +12,8 @@ else
 fi
 
 # 安装必要工具
+# connect：cc-proxy SSH 打洞首选工具，mac 专属保留（Linux 已裁掉，用 nc -X 兜底）；
+# node：mac 例外走 brew（Linux 走官方 nvm 脚本）
 PACKAGES=(
     zoxide
     bash-completion
@@ -25,6 +27,7 @@ PACKAGES=(
     btop
     jq
     wget
+    node
 )
 
 for pkg in "${PACKAGES[@]}"; do
@@ -70,6 +73,26 @@ else
         || env UV_NO_MODIFY_PATH=1 bash -c \
             'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh'
     echo "[OK] $("$HOME/.local/bin/uv" --version)"
+fi
+
+# Codex CLI（npm 全局；node 由上方 brew 提供）
+if command -v codex &>/dev/null; then
+    echo "[SKIP] codex already installed"
+else
+    echo "[INSTALL] codex <- npm install -g @openai/codex..."
+    HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" npm install -g @openai/codex \
+        || npm install -g @openai/codex
+fi
+
+# Claude Code（官方原生安装器）；安装器是静态二进制，必须 env 代理
+if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
+    echo "[SKIP] claude code already installed"
+else
+    echo "[INSTALL] claude code <- 官方脚本 claude.ai/install.sh..."
+    env HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" bash -c \
+            'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash' \
+        || bash -c 'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash'
+    echo "[OK] claude -> $HOME/.local/bin/claude"
 fi
 
 # Neovim nightly（--HEAD 从 git 源码构建）

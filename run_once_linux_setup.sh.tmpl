@@ -208,9 +208,82 @@ install_uv() {
     return 1
 }
 
+# ==================== Node.js（官方 nvm 脚本，LTS） ====================
+# nvm 加载器已在纳管 rc 模板（zshrc/bashrc）中，此处只负责安装；
+# PROFILE=/dev/null 禁写 rc，与 rustup --no-modify-path / UV_NO_MODIFY_PATH 同一纪律
+NVM_VERSION="v0.40.3"
+install_node() {
+    export NVM_DIR="$HOME/.nvm"
+    local proxy
+    proxy="http://$(proxy_host):10808"
+
+    if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+        echo "[SKIP] nvm already installed"
+    else
+        echo "[INSTALL] nvm <- 官方脚本 ${NVM_VERSION}..."
+        env HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" PROFILE=/dev/null bash -c \
+                "set -o pipefail; curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash" \
+            || env PROFILE=/dev/null bash -c \
+                "set -o pipefail; curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash" \
+            || { echo "[FAIL] nvm 安装失败"; return 1; }
+    fi
+
+    # nvm.sh 在无默认别名等场景可能返回非零（脚本全局 set -e），容错后再验证
+    source "$NVM_DIR/nvm.sh" 2>/dev/null || true
+    command -v nvm &>/dev/null || { echo "[FAIL] nvm 加载失败"; return 1; }
+
+    if command -v node &>/dev/null; then
+        echo "[SKIP] node already installed ($(node --version))"
+        return 0
+    fi
+    echo "[INSTALL] node LTS <- nvm install --lts..."
+    HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" nvm install --lts \
+        || nvm install --lts \
+        || { echo "[FAIL] node 安装失败"; return 1; }
+    echo "[OK] node $(node --version) / npm $(npm --version)"
+}
+
+# ==================== Codex CLI（npm 全局） ====================
+install_codex() {
+    if command -v codex &>/dev/null; then
+        echo "[SKIP] codex already installed"
+        return 0
+    fi
+    if ! command -v npm &>/dev/null; then
+        echo "[FAIL] codex: npm 不可用（node 未装成功）"
+        return 1
+    fi
+    local proxy
+    proxy="http://$(proxy_host):10808"
+    echo "[INSTALL] codex <- npm install -g @openai/codex..."
+    HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" npm install -g @openai/codex \
+        || npm install -g @openai/codex \
+        || { echo "[FAIL] codex 安装失败"; return 1; }
+    echo "[OK] codex $(codex --version 2>/dev/null | head -1)"
+}
+
+# ==================== Claude Code（官方原生安装器） ====================
+install_claude_code() {
+    if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
+        echo "[SKIP] claude code already installed"
+        return 0
+    fi
+    local proxy
+    proxy="http://$(proxy_host):10808"
+    echo "[INSTALL] claude code <- 官方脚本 claude.ai/install.sh..."
+    # 安装器是静态二进制，proxychains 的 LD_PRELOAD 对它无效，必须 env 代理；
+    # ~/.claude/settings.json 模板在 WSL 渲染不含代理键，不会盖掉此处 env
+    env HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" bash -c \
+            'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash' \
+        || bash -c 'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash' \
+        || { echo "[FAIL] claude code 安装失败"; return 1; }
+    echo "[OK] claude -> $HOME/.local/bin/claude"
+}
+
 # ==================== 基础包 ====================
 if command -v apt &>/dev/null; then
-    # 仅放确定在 apt 源内的包；eza/yazi/rust/uv 走下方专用安装段
+    # 仅放确定在 apt 源内的包；eza/yazi/rust/uv/node/claude/codex 走下方专用安装段。
+    # netcat-openbsd 提供 nc -X：cc-proxy SSH 打洞在 Linux 的兜底（connect 仅 mac 保留）
     PACKAGES=(
         zoxide
         zsh
@@ -218,10 +291,11 @@ if command -v apt &>/dev/null; then
         ripgrep
         btop
         jq
+        git
         wget
         curl
         unzip
-        connect-proxy
+        netcat-openbsd
         proxychains4
         software-properties-common
     )
@@ -270,11 +344,14 @@ if command -v apt &>/dev/null; then
         echo "[SKIP] All apt packages already installed"
     fi
 
-    # 源外组件：rust/uv 官方脚本、eza 走 cargo、yazi 走官方 apt 源
+    # 源外组件：rust/uv/nvm/claude 官方脚本、eza 走 cargo、yazi 走官方 apt 源、codex 走 npm
     install_rust_nightly || FAILED+=("rust-nightly")
     install_eza || FAILED+=("eza")
     install_yazi || FAILED+=("yazi")
     install_uv || FAILED+=("uv")
+    install_node || FAILED+=("node")
+    install_codex || FAILED+=("codex")
+    install_claude_code || FAILED+=("claude-code")
 
     if [[ ${#FAILED[@]} -gt 0 ]]; then
         echo "[FAIL] 以下组件安装失败: ${FAILED[*]}"
@@ -292,7 +369,10 @@ if command -v apt &>/dev/null; then
     fi
 
 elif command -v pacman &>/dev/null; then
-    # Arch 官方仓库版本足够新，eza/yazi/uv 直接走 pacman；rust 仍用官方 rustup
+    # Arch 官方仓库版本足够新，eza/yazi/uv 直接走 pacman；rust 仍用官方 rustup，
+    # node/claude/codex 与 apt 分支共用官方脚本安装段。
+    # 最小安装无 git/curl/unzip，须显式列出（官方脚本与 omz clone 都依赖）；
+    # openbsd-netcat 提供 nc -X：cc-proxy SSH 打洞兜底（connect 仅 mac 保留）
     PACKAGES=(
         zoxide
         zsh
@@ -303,8 +383,11 @@ elif command -v pacman &>/dev/null; then
         ripgrep
         btop
         jq
+        git
         wget
-        connect-proxy
+        curl
+        unzip
+        openbsd-netcat
         proxychains-ng
     )
 
@@ -323,6 +406,9 @@ elif command -v pacman &>/dev/null; then
     fi
 
     install_rust_nightly
+    install_node
+    install_codex
+    install_claude_code
 
     # Neovim nightly（neovim-nightly-bin from AUR）
     if command -v nvim &>/dev/null && nvim --version 2>/dev/null | head -1 | grep -q 'dev'; then

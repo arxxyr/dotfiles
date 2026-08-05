@@ -96,6 +96,52 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
         Write-Host "[FAIL] uv install.ps1 下载失败（检查代理后重跑 chezmoi apply）"
     }
 }
+
+# Node.js LTS（官方 winget 包 OpenJS.NodeJS.LTS；winget 走系统代理设置）
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    Write-Host "[SKIP] node already installed"
+} else {
+    Write-Host "[INSTALL] node LTS <- winget OpenJS.NodeJS.LTS..."
+    winget install --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
+}
+
+# Codex CLI（npm 全局）；刚装完 node 时当前会话 PATH 未刷新，兜底用安装目录全路径
+if (Get-Command codex -ErrorAction SilentlyContinue) {
+    Write-Host "[SKIP] codex already installed"
+} else {
+    $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue).Source
+    if (-not $npmCmd -and (Test-Path "$env:ProgramFiles\nodejs\npm.cmd")) {
+        $npmCmd = "$env:ProgramFiles\nodejs\npm.cmd"
+    }
+    if ($npmCmd) {
+        Write-Host "[INSTALL] codex <- npm install -g @openai/codex..."
+        $env:HTTPS_PROXY = $proxy; $env:HTTP_PROXY = $proxy
+        & $npmCmd install -g @openai/codex
+        Remove-Item Env:\HTTPS_PROXY, Env:\HTTP_PROXY -ErrorAction SilentlyContinue
+    } else {
+        Write-Host "[FAIL] codex: npm 不可用（node 未装成功）"
+    }
+}
+
+# Claude Code（官方 install.ps1）；引导脚本先代理后直连下载，安装器下载二进制吃 env 代理
+if (Get-Command claude -ErrorAction SilentlyContinue) {
+    Write-Host "[SKIP] claude code already installed"
+} else {
+    Write-Host "[INSTALL] claude code <- 官方脚本 claude.ai/install.ps1..."
+    $ccInstaller = Join-Path $env:TEMP 'claude-install.ps1'
+    curl.exe -fsSL --proxy $proxy --max-time 60 https://claude.ai/install.ps1 -o $ccInstaller 2>$null
+    if (-not (Test-Path $ccInstaller) -or (Get-Item $ccInstaller).Length -eq 0) {
+        curl.exe -fsSL --max-time 60 https://claude.ai/install.ps1 -o $ccInstaller 2>$null
+    }
+    if ((Test-Path $ccInstaller) -and (Get-Item $ccInstaller).Length -gt 0) {
+        $env:HTTPS_PROXY = $proxy; $env:HTTP_PROXY = $proxy
+        & $ccInstaller
+        Remove-Item Env:\HTTPS_PROXY, Env:\HTTP_PROXY -ErrorAction SilentlyContinue
+        Remove-Item $ccInstaller -ErrorAction SilentlyContinue
+    } else {
+        Write-Host "[FAIL] claude install.ps1 下载失败（检查代理后重跑 chezmoi apply）"
+    }
+}
 {{- else -}}
 #!/bin/sh
 echo "[SKIP] Not Windows"
