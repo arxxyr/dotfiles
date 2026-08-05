@@ -280,8 +280,99 @@ install_claude_code() {
     echo "[OK] claude -> $HOME/.local/bin/claude"
 }
 
+# ==================== WezTerm（Linux 桌面；WSL 跳过） ====================
+install_wezterm() {
+    # WSL 的终端由 Windows 侧承担（Windows Terminal），Linux 版 WezTerm 无用武之地
+    if [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qi microsoft /proc/version 2>/dev/null; then
+        echo "[SKIP] wezterm: WSL 环境（终端由 Windows 侧提供）"
+        return 0
+    fi
+    if command -v wezterm &>/dev/null; then
+        echo "[SKIP] wezterm already installed"
+    elif command -v apt &>/dev/null; then
+        local proxy keyring list tmp
+        proxy="http://$(proxy_host):10808"
+        keyring="/usr/share/keyrings/wezterm-fury.gpg"
+        list="/etc/apt/sources.list.d/wezterm.list"
+        echo "[INSTALL] wezterm <- 官方 fury 源（nightly）"
+
+        # fury CDN 直连不稳：key 先代理后直连；落临时文件校验非空再 dearmor
+        tmp="$(mktemp)"
+        if ! curl -fsSL --proxy "$proxy" --max-time 30 https://apt.fury.io/wez/gpg.key -o "$tmp" \
+            && ! curl -fsSL --max-time 30 https://apt.fury.io/wez/gpg.key -o "$tmp"; then
+            rm -f "$tmp"
+            echo "[FAIL] wezterm: gpg key 下载失败"
+            return 1
+        fi
+        if [[ ! -s "$tmp" ]]; then
+            rm -f "$tmp"
+            echo "[FAIL] wezterm: gpg key 为空"
+            return 1
+        fi
+        sudo gpg --yes --dearmor -o "$keyring" "$tmp"
+        rm -f "$tmp"
+        sudo chmod 644 "$keyring"
+        echo "deb [signed-by=$keyring] https://apt.fury.io/wez/ * *" | sudo tee "$list" >/dev/null
+
+        # sudo 剥离代理环境，对该仓库域名单独挂代理；失败退回直连
+        { sudo apt -o "Acquire::https::Proxy::apt.fury.io=$proxy" update \
+            && sudo apt -o "Acquire::https::Proxy::apt.fury.io=$proxy" install -y wezterm-nightly; } \
+            || { sudo apt update && sudo apt install -y wezterm-nightly; } \
+            || { echo "[FAIL] wezterm 安装失败"; return 1; }
+    elif command -v pacman &>/dev/null; then
+        echo "[INSTALL] wezterm <- pacman"
+        sudo pacman -S --noconfirm --needed wezterm || { echo "[FAIL] wezterm 安装失败"; return 1; }
+    fi
+
+    # 默认终端指向 wezterm（Debian 系 alternatives；--set 非交互，替代原手动 --config）
+    if command -v update-alternatives &>/dev/null; then
+        local alt
+        alt="$(update-alternatives --list x-terminal-emulator 2>/dev/null | grep -i wezterm | head -1)"
+        if [[ -n "$alt" ]]; then
+            sudo update-alternatives --set x-terminal-emulator "$alt"
+            echo "[OK] x-terminal-emulator -> $alt"
+        fi
+    fi
+    return 0
+}
+
+# ==================== AUR helper（yay-bin，仅 Arch） ====================
+install_aur_helper() {
+    if command -v yay &>/dev/null || command -v paru &>/dev/null; then
+        echo "[SKIP] AUR helper already installed"
+        return 0
+    fi
+    local proxy tmp
+    proxy="http://$(proxy_host):10808"
+    tmp="$(mktemp -d)"
+    echo "[INSTALL] yay-bin <- AUR（makepkg）..."
+    # yay-bin 为预编译 release 包，makepkg 无需 go 工具链；makepkg 禁 root，
+    # 依赖 base-devel（已入基础包列表）
+    if ! env HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" git clone --depth 1 https://aur.archlinux.org/yay-bin.git "$tmp/yay-bin" \
+        && ! git clone --depth 1 https://aur.archlinux.org/yay-bin.git "$tmp/yay-bin"; then
+        rm -rf "$tmp"
+        echo "[FAIL] yay-bin: AUR clone 失败"
+        return 1
+    fi
+    if ! ( cd "$tmp/yay-bin" && env HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" makepkg -si --noconfirm ); then
+        rm -rf "$tmp"
+        echo "[FAIL] yay-bin 安装失败"
+        return 1
+    fi
+    rm -rf "$tmp"
+    echo "[OK] $(yay --version 2>/dev/null | head -1)"
+}
+
 # ==================== 基础包 ====================
 if command -v apt &>/dev/null; then
+    # 强制 apt 走 IPv4（IPv6 路由不稳时 update 挂起的老毛病）
+    if [[ -f /etc/apt/apt.conf.d/99force-ipv4 ]]; then
+        echo "[SKIP] apt force-ipv4 already configured"
+    else
+        echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 >/dev/null
+        echo "[OK] apt force-ipv4 configured"
+    fi
+
     # 仅放确定在 apt 源内的包；eza/yazi/rust/uv/node/claude/codex 走下方专用安装段。
     # netcat-openbsd 提供 nc -X：cc-proxy SSH 打洞在 Linux 的兜底（connect 仅 mac 保留）
     PACKAGES=(
@@ -353,6 +444,7 @@ if command -v apt &>/dev/null; then
     install_node || FAILED+=("node")
     install_codex || FAILED+=("codex")
     install_claude_code || FAILED+=("claude-code")
+    install_wezterm || FAILED+=("wezterm")
 
     if [[ ${#FAILED[@]} -gt 0 ]]; then
         echo "[FAIL] 以下组件安装失败: ${FAILED[*]}"
@@ -413,6 +505,8 @@ elif command -v pacman &>/dev/null; then
     install_node
     install_codex
     install_claude_code
+    install_wezterm
+    install_aur_helper
 
     # Neovim nightly（neovim-nightly-bin from AUR）
     if command -v nvim &>/dev/null && nvim --version 2>/dev/null | head -1 | grep -q 'dev'; then

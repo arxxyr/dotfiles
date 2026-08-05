@@ -44,6 +44,8 @@ Every step is idempotent — already-installed tools are skipped.
 | Claude Code | official installer (static binary → env proxy required) | same | same | official `install.ps1` |
 | Neovim nightly | unstable PPA + vim/vi/editor alternatives | AUR `neovim-nightly-bin` (needs yay/paru) | `brew --HEAD` | not installed |
 | Oh My Zsh + plugins | git clone | same | same | — |
+| WezTerm (GUI terminal; skipped on WSL) | official fury repo (nightly) + x-terminal-emulator | pacman | — (unmanaged) | — |
+| AUR helper (yay-bin) | — | AUR makepkg | — | — |
 | Git / PowerShell 7 / Windows Terminal / PowerToys | — | — | — | winget with `--proxy` |
 
 ### Installed package list (exact names per package manager)
@@ -71,33 +73,15 @@ Conventions baked into the scripts:
 - Windows deliberately skips nvim and the fzf/rg/eza/zoxide/yazi CLI family.
 - apt installs are partitioned against unknown packages, so one missing name cannot
   void the whole transaction; failed components are collected and reported at the end.
+- apt is forced to IPv4 globally (`/etc/apt/apt.conf.d/99force-ipv4`) to avoid update
+  hangs on flaky IPv6 routes.
 
-## Bootstrap (manual leftovers)
+## Optional: full dev toolchain (embedded / OpenWrt builds)
 
-The few things `run_once` does not manage:
-
-```bash
-# (optional) Force apt to use IPv4 on flaky IPv6 networks
-echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 > /dev/null
-
-# WezTerm (Linux; official fury repo)
-curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
-echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list
-sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg
-sudo apt update && sudo apt install -y wezterm-nightly
-sudo update-alternatives --config x-terminal-emulator
-
-# pip mirror (China)
-pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple
-```
-
-### Arch Linux: AUR helper (needed for neovim-nightly-bin)
-
-```bash
-sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
-```
-
-### Optional: full dev toolchain (embedded / OpenWrt builds)
+> Everything from the former "manual bootstrap" is now automated in run_once:
+> apt IPv4 forcing, WezTerm (fury repo + default-terminal alternatives, skipped on
+> WSL), and the AUR helper (yay-bin) are installed by the setup scripts; the pip
+> China mirror ships in the managed `~/.config/pip/pip.conf` — no `pip config set`.
 
 Not part of the managed setup — install on build machines only:
 

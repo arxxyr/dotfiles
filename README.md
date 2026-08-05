@@ -43,6 +43,8 @@ chezmoi diff                      # 查看待应用的变更
 | Claude Code | 官方安装器（静态二进制 → 必须 env 代理） | 同左 | 同左 | 官方 `install.ps1` |
 | Neovim nightly | unstable PPA + vim/vi/editor alternatives | AUR `neovim-nightly-bin`（需 yay/paru） | `brew --HEAD` | 不安装 |
 | Oh My Zsh + 插件 | git clone | 同左 | 同左 | — |
+| WezTerm（GUI 终端；WSL 跳过） | 官方 fury 源（nightly）+ x-terminal-emulator | pacman | —（未纳管） | — |
+| AUR helper（yay-bin） | — | AUR makepkg | — | — |
 | Git / PowerShell 7 / Windows Terminal / PowerToys | — | — | — | winget 带 `--proxy` |
 
 ### 安装的软件清单（各包管理器的确切包名）
@@ -69,31 +71,13 @@ chezmoi diff                      # 查看待应用的变更
   缺失时触发一次性 UAC 提权启用。
 - Windows 刻意不装 nvim 与 fzf/rg/eza/zoxide/yazi 等 CLI 族。
 - apt 安装先按包是否存在分区，单个包名缺失不会拖垮整笔事务；失败组件汇总后统一报错。
+- apt 全局强制 IPv4（`/etc/apt/apt.conf.d/99force-ipv4`），规避 IPv6 路由不稳时 update 挂起。
 
-## 手动引导（run_once 不管的部分）
+## 可选：完整开发工具链（嵌入式 / OpenWrt 编译）
 
-```bash
-# （可选）IPv6 不稳的网络强制 apt 走 IPv4
-echo 'Acquire::ForceIPv4 "true";' | sudo tee /etc/apt/apt.conf.d/99force-ipv4 > /dev/null
-
-# WezTerm（Linux；官方 fury 源）
-curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
-echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list
-sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg
-sudo apt update && sudo apt install -y wezterm-nightly
-sudo update-alternatives --config x-terminal-emulator
-
-# pip 国内镜像
-pip config set global.index-url https://pypi.mirrors.ustc.edu.cn/simple
-```
-
-### Arch Linux：AUR helper（neovim-nightly-bin 需要）
-
-```bash
-sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si
-```
-
-### 可选：完整开发工具链（嵌入式 / OpenWrt 编译）
+> 原"手动引导"各项已全部并入 run_once 自动化：apt 强制 IPv4、WezTerm（fury 源 +
+> 默认终端 alternatives，WSL 跳过）、AUR helper（yay-bin）由 setup 脚本安装；
+> pip 国内镜像由纳管的 `~/.config/pip/pip.conf` 直接提供，无需 `pip config set`。
 
 不属于纳管范围——仅编译机需要：
 
