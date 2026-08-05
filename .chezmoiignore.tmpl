@@ -10,6 +10,8 @@ README.en.md
 .custom_scripts/cc-proxy-host
 .custom_scripts/cc-pc
 {{- else }}
+# Linux/macOS 上忽略 Windows 专属配置（pip.ini 走 %APPDATA%）
+AppData
 # Linux/macOS 上忽略 PowerShell 脚本
 .custom_scripts/cc-claude.ps1
 .custom_scripts/cc-update.ps1

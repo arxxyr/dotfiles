@@ -81,7 +81,8 @@ Conventions baked into the scripts:
 > Everything from the former "manual bootstrap" is now automated in run_once:
 > apt IPv4 forcing, WezTerm (fury repo + default-terminal alternatives, skipped on
 > WSL), and the AUR helper (yay-bin) are installed by the setup scripts; the pip
-> China mirror ships in the managed `~/.config/pip/pip.conf` — no `pip config set`.
+> China mirror ships in the managed configs (POSIX: `~/.config/pip/pip.conf`;
+> Windows: `%APPDATA%\pip\pip.ini`) — no `pip config set`.
 
 Not part of the managed setup — install on build machines only:
 
@@ -114,7 +115,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | starship | `~/.config/starship.toml` | Starship prompt |
 | lazygit | `~/.config/lazygit/` | Lazygit TUI |
 | neofetch | `~/.config/neofetch/` | Neofetch + custom ASCII art |
-| pip | `~/.config/pip/pip.conf` | Pip mirror config |
+| pip | `~/.config/pip/pip.conf` (POSIX), `%APPDATA%\pip\pip.ini` (Windows) | pip USTC mirror, both platforms |
 
 ## Custom Scripts
 

@@ -77,7 +77,8 @@ chezmoi diff                      # 查看待应用的变更
 
 > 原"手动引导"各项已全部并入 run_once 自动化：apt 强制 IPv4、WezTerm（fury 源 +
 > 默认终端 alternatives，WSL 跳过）、AUR helper（yay-bin）由 setup 脚本安装；
-> pip 国内镜像由纳管的 `~/.config/pip/pip.conf` 直接提供，无需 `pip config set`。
+> pip 国内镜像由纳管配置直接提供（POSIX：`~/.config/pip/pip.conf`；
+> Windows：`%APPDATA%\pip\pip.ini`），无需 `pip config set`。
 
 不属于纳管范围——仅编译机需要：
 
@@ -110,7 +111,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | starship | `~/.config/starship.toml` | Starship 提示符 |
 | lazygit | `~/.config/lazygit/` | Lazygit TUI |
 | neofetch | `~/.config/neofetch/` | Neofetch + 自定义 ASCII art |
-| pip | `~/.config/pip/pip.conf` | pip 镜像配置 |
+| pip | `~/.config/pip/pip.conf`（POSIX）、`%APPDATA%\pip\pip.ini`（Windows） | pip USTC 镜像，双平台同配 |
 
 ## 自定义脚本
 
