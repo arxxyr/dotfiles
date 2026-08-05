@@ -180,9 +180,37 @@ install_yazi() {
     install_github_release yazi
 }
 
+# ==================== uv（官方安装脚本 astral.sh） ====================
+install_uv() {
+    if command -v uv &>/dev/null || [[ -x "$BIN_DIR/uv" ]]; then
+        echo "[SKIP] uv already installed"
+        return 0
+    fi
+
+    local proxy
+    proxy="http://$(proxy_host):10808"
+
+    echo "[INSTALL] uv <- 官方脚本 astral.sh/uv/install.sh..."
+    # 官方安装方式，默认落 ~/.local/bin；整条管道包代理（curl 与安装器内部
+    # 下载 release 产物都要联网），失败退回直连。UV_NO_MODIFY_PATH=1 禁写
+    # 纳管 rc（PATH 引导由 profile.sh source ~/.local/bin/env 承担），
+    # uv self update 也遵守该标记不回写
+    if env HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" UV_NO_MODIFY_PATH=1 bash -c \
+            'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh' \
+        || env UV_NO_MODIFY_PATH=1 bash -c \
+            'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh'; then
+        if [[ -x "$BIN_DIR/uv" ]] || command -v uv &>/dev/null; then
+            echo "[OK] $("$BIN_DIR/uv" --version 2>/dev/null || uv --version)"
+            return 0
+        fi
+    fi
+    echo "[FAIL] uv 安装失败"
+    return 1
+}
+
 # ==================== 基础包 ====================
 if command -v apt &>/dev/null; then
-    # 仅放确定在 apt 源内的包；eza/yazi/rust 走下方专用安装段
+    # 仅放确定在 apt 源内的包；eza/yazi/rust/uv 走下方专用安装段
     PACKAGES=(
         zoxide
         zsh
@@ -242,10 +270,11 @@ if command -v apt &>/dev/null; then
         echo "[SKIP] All apt packages already installed"
     fi
 
-    # 源外组件：rust 官方脚本、eza 走 cargo、yazi 走官方 apt 源
+    # 源外组件：rust/uv 官方脚本、eza 走 cargo、yazi 走官方 apt 源
     install_rust_nightly || FAILED+=("rust-nightly")
     install_eza || FAILED+=("eza")
     install_yazi || FAILED+=("yazi")
+    install_uv || FAILED+=("uv")
 
     if [[ ${#FAILED[@]} -gt 0 ]]; then
         echo "[FAIL] 以下组件安装失败: ${FAILED[*]}"
@@ -263,13 +292,14 @@ if command -v apt &>/dev/null; then
     fi
 
 elif command -v pacman &>/dev/null; then
-    # Arch 官方仓库版本足够新，eza/yazi 直接走 pacman；rust 仍用官方 rustup
+    # Arch 官方仓库版本足够新，eza/yazi/uv 直接走 pacman；rust 仍用官方 rustup
     PACKAGES=(
         zoxide
         zsh
         eza
         fzf
         yazi
+        uv
         ripgrep
         btop
         jq

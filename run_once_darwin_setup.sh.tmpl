@@ -58,6 +58,20 @@ else
     echo "[OK] $(rustc --version)"
 fi
 
+# uv（官方安装脚本 astral.sh）；代理在本机，127.0.0.1 直用；
+# UV_NO_MODIFY_PATH=1 禁写纳管 rc（PATH 引导由 profile.sh source ~/.local/bin/env 承担）
+if command -v uv &>/dev/null || [[ -x "$HOME/.local/bin/uv" ]]; then
+    echo "[SKIP] uv already installed"
+else
+    echo "[INSTALL] uv <- 官方脚本 astral.sh/uv/install.sh..."
+    # 整条管道包代理（curl 与安装器内部下载 release 产物都要联网），失败退回直连
+    env HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" UV_NO_MODIFY_PATH=1 bash -c \
+            'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh' \
+        || env UV_NO_MODIFY_PATH=1 bash -c \
+            'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh'
+    echo "[OK] $("$HOME/.local/bin/uv" --version)"
+fi
+
 # Neovim nightly（--HEAD 从 git 源码构建）
 if brew list --head neovim &>/dev/null 2>&1; then
     echo "[SKIP] neovim (HEAD) already installed"

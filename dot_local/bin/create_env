@@ -1,6 +1,8 @@
 #!/bin/sh
-# 占位文件：确保 .zshrc 中 source 不报错
-# uv 安装后会用自己的版本覆盖此文件（chezmoi create_ 语义：仅在不存在时创建）
+# 占位文件：确保 profile.sh 中 source ~/.local/bin/env 不报错
+# （chezmoi create_ 语义：仅在不存在时创建）
+# setup 脚本以 UV_NO_MODIFY_PATH=1 安装 uv：安装器不写 rc 也不覆盖本文件，
+# 此处即长期生效的 PATH 引导；仅手动裸跑官方安装器时才会被 uv 自己的版本覆盖
 case ":${PATH}:" in
     *:"$HOME/.local/bin":*)
         ;;

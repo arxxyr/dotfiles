@@ -42,15 +42,17 @@ if ($profileContent -notlike '*chezmoi custom scripts*') {
     Write-Host "[SKIP] Aliases already exist"
 }
 
-# Rust 工具链（官方 rustup-init，nightly）；Windows 代理在本机，127.0.0.1 直用
-$rustProxy = 'http://127.0.0.1:10808'
+# 本机代理（xray mixed 入站），rust/uv 安装段共用；Windows 代理在本机，127.0.0.1 直用
+$proxy = 'http://127.0.0.1:10808'
+
+# Rust 工具链（官方 rustup-init，nightly）
 if (Get-Command rustup -ErrorAction SilentlyContinue) {
     $toolchains = rustup toolchain list 2>$null
     if ($toolchains -match '^nightly') {
         Write-Host "[SKIP] rust nightly already installed"
     } else {
         Write-Host "[INSTALL] rust nightly toolchain..."
-        $env:HTTPS_PROXY = $rustProxy; $env:HTTP_PROXY = $rustProxy
+        $env:HTTPS_PROXY = $proxy; $env:HTTP_PROXY = $proxy
         rustup toolchain install nightly
         Remove-Item Env:\HTTPS_PROXY, Env:\HTTP_PROXY -ErrorAction SilentlyContinue
     }
@@ -58,18 +60,40 @@ if (Get-Command rustup -ErrorAction SilentlyContinue) {
     Write-Host "[INSTALL] rustup <- 官方 rustup-init.exe（default=nightly）..."
     $rustupInit = Join-Path $env:TEMP 'rustup-init.exe'
     # 官方下载地址；先走代理、失败退回直连
-    curl.exe -fsSL --proxy $rustProxy --max-time 60 https://win.rustup.rs/x86_64 -o $rustupInit 2>$null
+    curl.exe -fsSL --proxy $proxy --max-time 60 https://win.rustup.rs/x86_64 -o $rustupInit 2>$null
     if (-not (Test-Path $rustupInit) -or (Get-Item $rustupInit).Length -eq 0) {
         curl.exe -fsSL --max-time 60 https://win.rustup.rs/x86_64 -o $rustupInit 2>$null
     }
     if ((Test-Path $rustupInit) -and (Get-Item $rustupInit).Length -gt 0) {
-        $env:HTTPS_PROXY = $rustProxy; $env:HTTP_PROXY = $rustProxy
+        $env:HTTPS_PROXY = $proxy; $env:HTTP_PROXY = $proxy
         & $rustupInit -y --default-toolchain nightly
         Remove-Item Env:\HTTPS_PROXY, Env:\HTTP_PROXY -ErrorAction SilentlyContinue
         Remove-Item $rustupInit -ErrorAction SilentlyContinue
         Write-Host "[OK] rustup installed (default=nightly)"
     } else {
         Write-Host "[FAIL] rustup-init.exe 下载失败（检查代理后重跑 chezmoi apply）"
+    }
+}
+
+# uv（官方安装脚本 astral.sh）；PATH 由安装器写入用户注册表，Windows 无纳管 rc 漂移问题
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    Write-Host "[SKIP] uv already installed"
+} else {
+    Write-Host "[INSTALL] uv <- 官方脚本 astral.sh/uv/install.ps1..."
+    $uvInstaller = Join-Path $env:TEMP 'uv-install.ps1'
+    # 脚本先走代理下载、失败退回直连；安装器内部下载 release 产物靠代理环境变量
+    curl.exe -fsSL --proxy $proxy --max-time 60 https://astral.sh/uv/install.ps1 -o $uvInstaller 2>$null
+    if (-not (Test-Path $uvInstaller) -or (Get-Item $uvInstaller).Length -eq 0) {
+        curl.exe -fsSL --max-time 60 https://astral.sh/uv/install.ps1 -o $uvInstaller 2>$null
+    }
+    if ((Test-Path $uvInstaller) -and (Get-Item $uvInstaller).Length -gt 0) {
+        $env:HTTPS_PROXY = $proxy; $env:HTTP_PROXY = $proxy
+        & $uvInstaller
+        Remove-Item Env:\HTTPS_PROXY, Env:\HTTP_PROXY -ErrorAction SilentlyContinue
+        Remove-Item $uvInstaller -ErrorAction SilentlyContinue
+        Write-Host "[OK] uv installed"
+    } else {
+        Write-Host "[FAIL] uv install.ps1 下载失败（检查代理后重跑 chezmoi apply）"
     }
 }
 {{- else -}}
