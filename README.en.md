@@ -46,6 +46,21 @@ Every step is idempotent — already-installed tools are skipped.
 | Oh My Zsh + plugins | git clone | same | same | — |
 | Git / PowerShell 7 / Windows Terminal / PowerToys | — | — | — | winget with `--proxy` |
 
+### Installed package list (exact names per package manager)
+
+| Platform | Packages |
+|---|---|
+| Ubuntu/Debian (apt) | `zoxide zsh fzf ripgrep btop jq git wget curl unzip netcat-openbsd proxychains4 software-properties-common` |
+| Arch (pacman) | `zoxide zsh eza fzf yazi uv ripgrep btop jq git wget curl unzip openbsd-netcat proxychains-ng` |
+| macOS (brew) | `zoxide bash-completion xmake connect proxychains-ng eza fzf yazi ripgrep btop jq wget node` |
+| Windows (winget) | `Git.Git` `OpenJS.NodeJS.LTS` `Microsoft.PowerShell` `Microsoft.WindowsTerminal` `Microsoft.PowerToys` |
+
+Outside the package managers (all platforms, channels per the matrix above):
+
+- **rust nightly** (rustup), **uv**, **Node.js LTS** (nvm; brew on mac), **Codex CLI** (npm), **Claude Code** (official installer)
+- **eza** (cargo/binary on Ubuntu), **yazi** (official apt repo on Ubuntu), **Neovim nightly** (PPA / AUR / brew --HEAD)
+- **Oh My Zsh** + plugins: `zsh-syntax-highlighting` `zsh-autosuggestions` `zsh-completions`
+
 Conventions baked into the scripts:
 
 - Installers must never touch managed rc files — PATH/env bootstrap lives in

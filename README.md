@@ -45,6 +45,21 @@ chezmoi diff                      # 查看待应用的变更
 | Oh My Zsh + 插件 | git clone | 同左 | 同左 | — |
 | Git / PowerShell 7 / Windows Terminal / PowerToys | — | — | — | winget 带 `--proxy` |
 
+### 安装的软件清单（各包管理器的确切包名）
+
+| 平台 | 包名 |
+|---|---|
+| Ubuntu/Debian（apt） | `zoxide zsh fzf ripgrep btop jq git wget curl unzip netcat-openbsd proxychains4 software-properties-common` |
+| Arch（pacman） | `zoxide zsh eza fzf yazi uv ripgrep btop jq git wget curl unzip openbsd-netcat proxychains-ng` |
+| macOS（brew） | `zoxide bash-completion xmake connect proxychains-ng eza fzf yazi ripgrep btop jq wget node` |
+| Windows（winget） | `Git.Git` `OpenJS.NodeJS.LTS` `Microsoft.PowerShell` `Microsoft.WindowsTerminal` `Microsoft.PowerToys` |
+
+包管理器之外（全平台一致，见上方矩阵的安装渠道）：
+
+- **rust nightly**（rustup）、**uv**、**Node.js LTS**（nvm，mac 为 brew）、**Codex CLI**（npm）、**Claude Code**（官方安装器）
+- **eza**（Ubuntu 走 cargo/二进制）、**yazi**（Ubuntu 走官方 apt 源）、**Neovim nightly**（PPA / AUR / brew --HEAD）
+- **Oh My Zsh** + 插件：`zsh-syntax-highlighting` `zsh-autosuggestions` `zsh-completions`
+
 脚本内置的约定：
 
 - 安装器一律不许碰纳管 rc 文件——PATH/env 引导统一放在
