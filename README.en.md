@@ -50,8 +50,8 @@ Every step is idempotent — already-installed tools are skipped.
 
 | Platform | Packages |
 |---|---|
-| Ubuntu/Debian (apt) | `zoxide zsh fzf ripgrep btop jq git wget curl unzip netcat-openbsd proxychains4 software-properties-common` |
-| Arch (pacman) | `zoxide zsh eza fzf yazi uv ripgrep btop jq git wget curl unzip openbsd-netcat proxychains-ng` |
+| Ubuntu/Debian (apt) | `zoxide zsh fzf ripgrep btop jq git wget curl unzip build-essential netcat-openbsd proxychains4 software-properties-common` |
+| Arch (pacman) | `zoxide zsh eza fzf yazi uv ripgrep btop jq git wget curl unzip base-devel openbsd-netcat proxychains-ng` |
 | macOS (brew) | `zoxide bash-completion xmake connect proxychains-ng eza fzf yazi ripgrep btop jq wget node` |
 | Windows (winget) | `Git.Git` `OpenJS.NodeJS.LTS` `Microsoft.PowerShell` `Microsoft.WindowsTerminal` `Microsoft.PowerToys` |
 
@@ -140,6 +140,14 @@ Proxy host is a single source of truth: `cc-proxy-host` prints the right address
 (WSL NAT → default gateway, detected at runtime; everywhere else → `127.0.0.1`).
 Every other script builds on it. Env-var layer stays `http://` (wget/pip/Node
 compatible); proxychains and SSH tunneling use socks5.
+
+**proxychains auto-config** (mac / Linux / WSL): login shells run
+`export PROXYCHAINS_CONF_FILE="$(cc-pc --refresh)"` (see profile.sh); the variable
+takes precedence over `/etc/proxychains4.conf`, so a bare `proxychains4 <cmd>` uses
+the dynamic config — after a WSL reboot, a new terminal picks up the new gateway
+automatically. `sudo` strips env vars; for root use `cc-install` / `cc-pc` (explicit
+`-f` internally). macOS caveat: SIP blocks proxychains injection into system binaries
+(`/usr/bin/*`); it works for brew-installed programs.
 
 | Command | Description |
 |---|---|

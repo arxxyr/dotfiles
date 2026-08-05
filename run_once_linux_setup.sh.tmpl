@@ -295,6 +295,7 @@ if command -v apt &>/dev/null; then
         wget
         curl
         unzip
+        build-essential
         netcat-openbsd
         proxychains4
         software-properties-common
@@ -387,20 +388,23 @@ elif command -v pacman &>/dev/null; then
         wget
         curl
         unzip
+        base-devel
         openbsd-netcat
         proxychains-ng
     )
 
     MISSING=()
     for pkg in "${PACKAGES[@]}"; do
-        if ! pacman -Qi "$pkg" &>/dev/null; then
+        # -Qi 只认单包；base-devel 这类包组用 -Qg 兜底（组内有成员在装即视为已装，
+        # 安装时 --needed 会补齐缺失成员）
+        if ! pacman -Qi "$pkg" &>/dev/null && ! pacman -Qg "$pkg" &>/dev/null; then
             MISSING+=("$pkg")
         fi
     done
 
     if [[ ${#MISSING[@]} -gt 0 ]]; then
         echo "[INSTALL] ${MISSING[*]}"
-        sudo pacman -S --noconfirm "${MISSING[@]}"
+        sudo pacman -S --noconfirm --needed "${MISSING[@]}"
     else
         echo "[SKIP] All packages already installed"
     fi

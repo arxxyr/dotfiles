@@ -49,8 +49,8 @@ chezmoi diff                      # 查看待应用的变更
 
 | 平台 | 包名 |
 |---|---|
-| Ubuntu/Debian（apt） | `zoxide zsh fzf ripgrep btop jq git wget curl unzip netcat-openbsd proxychains4 software-properties-common` |
-| Arch（pacman） | `zoxide zsh eza fzf yazi uv ripgrep btop jq git wget curl unzip openbsd-netcat proxychains-ng` |
+| Ubuntu/Debian（apt） | `zoxide zsh fzf ripgrep btop jq git wget curl unzip build-essential netcat-openbsd proxychains4 software-properties-common` |
+| Arch（pacman） | `zoxide zsh eza fzf yazi uv ripgrep btop jq git wget curl unzip base-devel openbsd-netcat proxychains-ng` |
 | macOS（brew） | `zoxide bash-completion xmake connect proxychains-ng eza fzf yazi ripgrep btop jq wget node` |
 | Windows（winget） | `Git.Git` `OpenJS.NodeJS.LTS` `Microsoft.PowerShell` `Microsoft.WindowsTerminal` `Microsoft.PowerToys` |
 
@@ -135,6 +135,13 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 代理宿主机是单一事实来源：`cc-proxy-host` 输出正确地址（WSL NAT → 运行时探测默认网关；
 其余环境 → `127.0.0.1`），其他脚本都基于它构建。环境变量层保持 `http://`
 （wget/pip/Node 兼容）；proxychains 与 SSH 打洞层走 socks5。
+
+**proxychains 自动配置**（mac / Linux / WSL）：登录 shell 会执行
+`export PROXYCHAINS_CONF_FILE="$(cc-pc --refresh)"`（见 profile.sh），该变量优先于
+`/etc/proxychains4.conf`——裸敲 `proxychains4 <cmd>` 即走动态配置，WSL 重启后开新终端
+自动跟上新网关。`sudo` 会剥离环境变量，root 场景用 `cc-install` / `cc-pc`（内部显式
+`-f`）。macOS 注意：SIP 使 proxychains 无法注入系统自带二进制（`/usr/bin/*`），对
+brew 安装的程序有效。
 
 | 命令 | 说明 |
 |---|---|

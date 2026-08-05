@@ -52,6 +52,19 @@ case ":$PATH:" in
     *) export PATH="$HOME/.custom_scripts:$PATH" ;;
 esac
 
+# proxychains 自动配置：每次登录经 cc-pc --refresh 按当前环境重新生成
+# （WSL 网关随重启漂移，mac/裸机固定 127.0.0.1）。proxychains-ng 读
+# PROXYCHAINS_CONF_FILE 优先于 /etc，裸敲 proxychains4 <cmd> 即走动态配置；
+# sudo 会剥离环境变量，root 场景用 cc-install / cc-pc（内部显式 -f）
+if [ -x "$HOME/.custom_scripts/cc-pc" ]; then
+    PROXYCHAINS_CONF_FILE="$("$HOME/.custom_scripts/cc-pc" --refresh 2>/dev/null)"
+    if [ -n "$PROXYCHAINS_CONF_FILE" ]; then
+        export PROXYCHAINS_CONF_FILE
+    else
+        unset PROXYCHAINS_CONF_FILE
+    fi
+fi
+
 {{- if eq .chezmoi.os "darwin" }}
 
 # node@24
