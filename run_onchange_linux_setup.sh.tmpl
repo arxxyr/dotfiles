@@ -14,6 +14,14 @@ proxy_host() {
     fi
 }
 
+# 全程走代理：尊重外部已注入的代理（proxychains/手动 export 可覆盖），否则回落网关；
+# 补齐未显式带 --proxy 的下载（如 GitHub release）；apt/pacman 经 sudo 隔离仍走系统源
+_default_proxy="http://$(proxy_host):{{ .proxy.port }}"
+export ALL_PROXY="${ALL_PROXY:-$_default_proxy}"
+export HTTPS_PROXY="${HTTPS_PROXY:-$ALL_PROXY}"
+export HTTP_PROXY="${HTTP_PROXY:-$ALL_PROXY}"
+export NO_PROXY="${NO_PROXY:-localhost,127.0.0.1,::1}"
+
 # GitHub release 静态二进制兜底（cargo / 官方 apt 源不可用时的最后一道）
 install_github_release() {
     local tool="$1"

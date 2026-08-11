@@ -2,6 +2,14 @@
 #!/bin/bash
 set -e
 
+# 全程走代理：尊重外部已注入的代理（proxychains/手动 export 可覆盖），否则回落本机 xray 入站；
+# 所有联网命令（brew/curl/git/npm/rustup…）统一继承，无需逐条打补丁
+_default_proxy="http://{{ .proxy.host }}:{{ .proxy.port }}"
+export ALL_PROXY="${ALL_PROXY:-$_default_proxy}"
+export HTTPS_PROXY="${HTTPS_PROXY:-$ALL_PROXY}"
+export HTTP_PROXY="${HTTP_PROXY:-$ALL_PROXY}"
+export NO_PROXY="${NO_PROXY:-localhost,127.0.0.1,::1}"
+
 # 安装 Homebrew（如果未安装）
 if ! command -v brew &>/dev/null; then
     echo "[INSTALL] Homebrew..."
@@ -48,14 +56,12 @@ if command -v rustup &>/dev/null; then
         echo "[SKIP] rust nightly already installed"
     else
         echo "[INSTALL] rust nightly toolchain..."
-        HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" rustup toolchain install nightly \
-            || rustup toolchain install nightly
+        rustup toolchain install nightly || rustup toolchain install nightly
     fi
 else
     echo "[INSTALL] rustup <- 官方脚本 sh.rustup.rs（default=nightly）..."
-    # 整条管道包代理（curl 与 rustup-init 都要联网），失败退回直连
-    env HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" bash -c \
-            'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly' \
+    # 代理由脚本开头全局 export 统一提供，失败重试一次
+    bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly' \
         || bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly'
     source "$HOME/.cargo/env"
     echo "[OK] $(rustc --version)"
@@ -67,11 +73,9 @@ if command -v uv &>/dev/null || [[ -x "$HOME/.local/bin/uv" ]]; then
     echo "[SKIP] uv already installed"
 else
     echo "[INSTALL] uv <- 官方脚本 astral.sh/uv/install.sh..."
-    # 整条管道包代理（curl 与安装器内部下载 release 产物都要联网），失败退回直连
-    env HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" UV_NO_MODIFY_PATH=1 bash -c \
-            'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh' \
-        || env UV_NO_MODIFY_PATH=1 bash -c \
-            'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh'
+    # 代理由脚本开头全局 export 统一提供；UV_NO_MODIFY_PATH 禁止安装器写 rc
+    UV_NO_MODIFY_PATH=1 bash -c 'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh' \
+        || UV_NO_MODIFY_PATH=1 bash -c 'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh'
     echo "[OK] $("$HOME/.local/bin/uv" --version)"
 fi
 
@@ -80,8 +84,7 @@ if command -v codex &>/dev/null; then
     echo "[SKIP] codex already installed"
 else
     echo "[INSTALL] codex <- npm install -g @openai/codex..."
-    HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" npm install -g @openai/codex \
-        || npm install -g @openai/codex
+    npm install -g @openai/codex || npm install -g @openai/codex
 fi
 
 # Claude Code（官方原生安装器）；安装器是静态二进制，必须 env 代理
@@ -89,8 +92,7 @@ if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
     echo "[SKIP] claude code already installed"
 else
     echo "[INSTALL] claude code <- 官方脚本 claude.ai/install.sh..."
-    env HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" bash -c \
-            'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash' \
+    bash -c 'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash' \
         || bash -c 'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash'
     echo "[OK] claude -> $HOME/.local/bin/claude"
 fi

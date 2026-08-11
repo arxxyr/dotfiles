@@ -44,7 +44,9 @@ if ($profileContent -notlike '*chezmoi custom scripts*') {
 
 # 本机代理（xray mixed 入站），winget/rust/uv/codex/claude 安装段共用；
 # Windows 代理在本机，127.0.0.1 直用
-$proxy = 'http://{{ .proxy.host }}:{{ .proxy.port }}'
+# 全程走代理：尊重外部已注入的 $env:HTTPS_PROXY，否则回落本机 xray 入站；
+# 下游 winget --proxy / curl.exe --proxy / npm 均用此 $proxy
+$proxy = if ($env:HTTPS_PROXY) { $env:HTTPS_PROXY } else { 'http://{{ .proxy.host }}:{{ .proxy.port }}' }
 
 # ==================== winget：代理初始化 + 基础包 ====================
 # ProxyCommandLineOptions 是管理员设置，首次启用需 UAC 提权确认；
