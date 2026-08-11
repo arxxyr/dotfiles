@@ -1,0 +1,38 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: cc-nosleep on|off|status
+#   on      开启合盖不休眠（sudo pmset -a disablesleep 1）
+#   off     恢复默认休眠（sudo pmset -a disablesleep 0）
+#   status  查看当前状态（默认动作，无需 sudo）
+#
+# 注意：开启期间合盖只灭屏不休眠、网络保持在线，装包前务必 off，
+#       否则包内持续发热耗电；系统大版本更新后设置可能被重置，重新 on 即可。
+
+cmd="${1:-status}"
+
+case "$cmd" in
+    on)
+        sudo pmset -a disablesleep 1
+        echo "[OK] 已开启：合盖不休眠（网络保持在线，装包前记得 cc-nosleep off）"
+        ;;
+    off)
+        sudo pmset -a disablesleep 0
+        echo "[OK] 已恢复：合盖正常休眠"
+        ;;
+    status)
+        # 开启时 pmset -g 会出现 "SleepDisabled 1"，关闭时为 0 或整行缺失
+        if pmset -g | grep -qE 'SleepDisabled[[:space:]]+1'; then
+            echo "当前状态：on（合盖不休眠）"
+        else
+            echo "当前状态：off（系统默认，合盖即休眠）"
+        fi
+        ;;
+    *)
+        echo "[ERROR] 未知参数: $cmd"
+        echo "用法: cc-nosleep on|off|status"
+        exit 1
+        ;;
+esac
+{{ end -}}
