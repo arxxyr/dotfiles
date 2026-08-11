@@ -12,7 +12,7 @@ if [[ $# -eq 0 ]]; then
 fi
 
 PROXY_HOST="$("$HOME/.custom_scripts/cc-proxy-host")"
-PROXY_PORT="10808"
+PROXY_PORT="{{ .proxy.port }}"
 
 CONF_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/cc-pc"
 CONF="$CONF_DIR/proxychains.conf"

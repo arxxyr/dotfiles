@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # 默认代理主机统一走 cc-proxy-host（darwin 上等价于 127.0.0.1）；CODEX_PROXY 可覆盖
-PROXY="${CODEX_PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):10808}"
+PROXY="${CODEX_PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):{{ .proxy.port }}}"
 TZ_VALUE="${CODEX_TZ:-America/New_York}"
 APP_ID="com.openai.codex"
 

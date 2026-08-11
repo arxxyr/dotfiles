@@ -48,13 +48,13 @@ if command -v rustup &>/dev/null; then
         echo "[SKIP] rust nightly already installed"
     else
         echo "[INSTALL] rust nightly toolchain..."
-        HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" rustup toolchain install nightly \
+        HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" rustup toolchain install nightly \
             || rustup toolchain install nightly
     fi
 else
     echo "[INSTALL] rustup <- 官方脚本 sh.rustup.rs（default=nightly）..."
     # 整条管道包代理（curl 与 rustup-init 都要联网），失败退回直连
-    env HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" bash -c \
+    env HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" bash -c \
             'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly' \
         || bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain nightly'
     source "$HOME/.cargo/env"
@@ -68,7 +68,7 @@ if command -v uv &>/dev/null || [[ -x "$HOME/.local/bin/uv" ]]; then
 else
     echo "[INSTALL] uv <- 官方脚本 astral.sh/uv/install.sh..."
     # 整条管道包代理（curl 与安装器内部下载 release 产物都要联网），失败退回直连
-    env HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" UV_NO_MODIFY_PATH=1 bash -c \
+    env HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" UV_NO_MODIFY_PATH=1 bash -c \
             'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh' \
         || env UV_NO_MODIFY_PATH=1 bash -c \
             'set -o pipefail; curl -LsSf https://astral.sh/uv/install.sh | sh'
@@ -80,7 +80,7 @@ if command -v codex &>/dev/null; then
     echo "[SKIP] codex already installed"
 else
     echo "[INSTALL] codex <- npm install -g @openai/codex..."
-    HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" npm install -g @openai/codex \
+    HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" npm install -g @openai/codex \
         || npm install -g @openai/codex
 fi
 
@@ -89,7 +89,7 @@ if command -v claude &>/dev/null || [[ -x "$HOME/.local/bin/claude" ]]; then
     echo "[SKIP] claude code already installed"
 else
     echo "[INSTALL] claude code <- 官方脚本 claude.ai/install.sh..."
-    env HTTPS_PROXY="http://127.0.0.1:10808" HTTP_PROXY="http://127.0.0.1:10808" bash -c \
+    env HTTPS_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" HTTP_PROXY="http://{{ .proxy.host }}:{{ .proxy.port }}" bash -c \
             'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash' \
         || bash -c 'set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash'
     echo "[OK] claude -> $HOME/.local/bin/claude"
@@ -129,15 +129,15 @@ echo "$ZSH_PLUGINS" | while read -r plugin url; do
     fi
 done
 
-# chezmoi auto commit/push
+# chezmoi git 集成：默认关闭 autoCommit/autoPush，公开仓库改用手动规范提交
 mkdir -p ~/.config/chezmoi
 if ! grep -q "autoCommit" ~/.config/chezmoi/chezmoi.toml 2>/dev/null; then
     cat >> ~/.config/chezmoi/chezmoi.toml << 'EOF'
 [git]
-    autoCommit = true
-    autoPush = true
+    autoCommit = false
+    autoPush = false
 EOF
-    echo "[OK] chezmoi auto commit/push enabled"
+    echo "[OK] chezmoi git 集成已配置（autoCommit/autoPush 关闭）"
 else
     echo "[SKIP] chezmoi already configured"
 fi

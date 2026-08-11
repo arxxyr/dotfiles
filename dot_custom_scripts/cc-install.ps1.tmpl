@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory=$true, Position=0, ValueFromRemainingArguments=$true)]
     [string[]]$Packages,
-    [string]$Proxy = 'http://127.0.0.1:10808'
+    [string]$Proxy = 'http://{{ .proxy.host }}:{{ .proxy.port }}'
 )
 
 $ErrorActionPreference = 'Stop'

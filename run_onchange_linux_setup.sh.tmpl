@@ -82,7 +82,7 @@ install_github_release() {
 # ==================== Rust 工具链（官方 rustup，nightly） ====================
 install_rust_nightly() {
     local proxy
-    proxy="http://$(proxy_host):10808"
+    proxy="http://$(proxy_host):{{ .proxy.port }}"
 
     # 已装 rustup 但当前进程 PATH 未包含 ~/.cargo/bin 时先加载
     if ! command -v rustup &>/dev/null && [[ -f "$HOME/.cargo/env" ]]; then
@@ -124,7 +124,7 @@ install_eza() {
         echo "[INSTALL] eza <- cargo install"
         # WSL 的 ~/.cargo/config.toml 已按环境裁掉 proxy 行，这里按当前网关显式补上；
         # 非 WSL 机器该值与配置文件一致，属无害覆盖
-        if CARGO_HTTP_PROXY="http://$(proxy_host):10808" cargo install eza; then
+        if CARGO_HTTP_PROXY="http://$(proxy_host):{{ .proxy.port }}" cargo install eza; then
             echo "[OK] eza -> $HOME/.cargo/bin/eza"
             return 0
         fi
@@ -143,7 +143,7 @@ install_yazi() {
     fi
 
     local proxy keyring list tmp
-    proxy="http://$(proxy_host):10808"
+    proxy="http://$(proxy_host):{{ .proxy.port }}"
     keyring="/usr/share/keyrings/yazi-keyring.gpg"
     list="/etc/apt/sources.list.d/yazi-nightly.list"
     echo "[INSTALL] yazi <- 官方 apt 源（nightly）"
@@ -188,7 +188,7 @@ install_uv() {
     fi
 
     local proxy
-    proxy="http://$(proxy_host):10808"
+    proxy="http://$(proxy_host):{{ .proxy.port }}"
 
     echo "[INSTALL] uv <- 官方脚本 astral.sh/uv/install.sh..."
     # 官方安装方式，默认落 ~/.local/bin；整条管道包代理（curl 与安装器内部
@@ -215,7 +215,7 @@ NVM_VERSION="v0.40.3"
 install_node() {
     export NVM_DIR="$HOME/.nvm"
     local proxy
-    proxy="http://$(proxy_host):10808"
+    proxy="http://$(proxy_host):{{ .proxy.port }}"
 
     if [[ -s "$NVM_DIR/nvm.sh" ]]; then
         echo "[SKIP] nvm already installed"
@@ -254,7 +254,7 @@ install_codex() {
         return 1
     fi
     local proxy
-    proxy="http://$(proxy_host):10808"
+    proxy="http://$(proxy_host):{{ .proxy.port }}"
     echo "[INSTALL] codex <- npm install -g @openai/codex..."
     HTTPS_PROXY="$proxy" HTTP_PROXY="$proxy" npm install -g @openai/codex \
         || npm install -g @openai/codex \
@@ -269,7 +269,7 @@ install_claude_code() {
         return 0
     fi
     local proxy
-    proxy="http://$(proxy_host):10808"
+    proxy="http://$(proxy_host):{{ .proxy.port }}"
     echo "[INSTALL] claude code <- 官方脚本 claude.ai/install.sh..."
     # 安装器是静态二进制，proxychains 的 LD_PRELOAD 对它无效，必须 env 代理；
     # ~/.claude/settings.json 模板在 WSL 渲染不含代理键，不会盖掉此处 env
@@ -291,7 +291,7 @@ install_wezterm() {
         echo "[SKIP] wezterm already installed"
     elif command -v apt &>/dev/null; then
         local proxy keyring list tmp
-        proxy="http://$(proxy_host):10808"
+        proxy="http://$(proxy_host):{{ .proxy.port }}"
         keyring="/usr/share/keyrings/wezterm-fury.gpg"
         list="/etc/apt/sources.list.d/wezterm.list"
         echo "[INSTALL] wezterm <- 官方 fury 源（nightly）"
@@ -343,7 +343,7 @@ install_aur_helper() {
         return 0
     fi
     local proxy tmp
-    proxy="http://$(proxy_host):10808"
+    proxy="http://$(proxy_host):{{ .proxy.port }}"
     tmp="$(mktemp -d)"
     echo "[INSTALL] yay-bin <- AUR（makepkg）..."
     # yay-bin 为预编译 release 包，makepkg 无需 go 工具链；makepkg 禁 root，

@@ -3,7 +3,7 @@ param(
     [Parameter(Position=0)]
     [string]$Action = 'on',
 
-    [string]$Proxy = 'http://127.0.0.1:10808'
+    [string]$Proxy = 'http://{{ .proxy.host }}:{{ .proxy.port }}'
 )
 
 switch ($Action) {

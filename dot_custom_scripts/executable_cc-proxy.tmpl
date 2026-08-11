@@ -18,7 +18,7 @@ off)
     # 默认协议用 http://：wget 不支持 socks、pip 走 socks 需额外装 pysocks、
     # Node 系 CLI（Claude Code 等）不认 socks5；而 HTTP CONNECT 同样由代理端解析域名，
     # DNS 语义与 socks5h 等价。需要 socks5 时显式传入 socks5h:// 地址即可。
-    _cc_default="http://$("$HOME/.custom_scripts/cc-proxy-host"):10808"
+    _cc_default="http://$("$HOME/.custom_scripts/cc-proxy-host"):{{ .proxy.port }}"
 
     [[ "$1" == "on" ]] && PROXY="$_cc_default" || PROXY="${1:-$_cc_default}"
 

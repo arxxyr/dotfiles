@@ -4,7 +4,7 @@ param(
 [ValidateSet('start','kill')]
 [string]$Action = 'start',
 
-[string]$Proxy = 'http://127.0.0.1:10808',
+[string]$Proxy = 'http://{{ .proxy.host }}:{{ .proxy.port }}',
 [string]$NoProxy = 'localhost,127.0.0.1,::1,.local'
 )
 

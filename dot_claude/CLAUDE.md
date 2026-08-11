@@ -452,6 +452,7 @@ cd "$(chezmoi source-path)" && git add <源文件> && git commit   # 提交源�
 
 - 新文件纳管：`chezmoi add <目标文件>`
 - 机器差异用模板（`*.tmpl` + `.chezmoidata`）处理，不要 fork 多份配置
+- **密钥零明文**：含真实密钥/令牌的文件必须用 `encrypted_` 前缀（age/gpg 加密）或用模板从密码管理器读取；`private_` 只改本地权限（0600），推到**公开仓库仍是明文**，绝不能靠它护密钥
 
 ---
 

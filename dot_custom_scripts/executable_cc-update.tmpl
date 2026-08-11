@@ -33,7 +33,7 @@ echo "[OK] Done"
 set -euo pipefail
 
 # 默认代理主机统一走 cc-proxy-host（darwin 上等价于 127.0.0.1）；PROXY 可覆盖
-PROXY="${PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):10808}"
+PROXY="${PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):{{ .proxy.port }}}"
 
 export HTTP_PROXY="$PROXY"
 export HTTPS_PROXY="$PROXY"

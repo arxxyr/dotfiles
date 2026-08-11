@@ -5,8 +5,8 @@
 {
   "env": {
 {{- if not $wsl }}
-    "HTTP_PROXY": "http://127.0.0.1:10808",
-    "HTTPS_PROXY": "http://127.0.0.1:10808",
+    "HTTP_PROXY": "http://{{ .proxy.host }}:{{ .proxy.port }}",
+    "HTTPS_PROXY": "http://{{ .proxy.host }}:{{ .proxy.port }}",
 {{- end }}
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
