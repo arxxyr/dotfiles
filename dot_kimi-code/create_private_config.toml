@@ -56,6 +56,11 @@ default_effort = "high"
 
 [thinking]
 enabled = true
+# 基线思考档。cc-kimi 另外用 KIMI_MODEL_THINKING_EFFORT 在出网请求上强制 max：
+# 这里这行只管状态栏/会话 profile 显示（不写它状态栏会显示 K3 的出厂 default_effort=high，
+# 与实际发出去的 max 对不上）。两层都留着——新机器首启会跑 thinking-effort-max-to-high
+# 迁移把这行改回 high，那时 env 那层仍然保证请求是 max。
+effort = "max"
 
 [services.moonshot_search]
 base_url = "https://api.kimi.com/coding/v1/search"
