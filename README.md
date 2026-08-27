@@ -103,7 +103,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | shell | `~/.config/shell/profile.sh` | 共享 PATH/env 引导（cargo、nvm、uv、自定义脚本、kimi-code） |
 | claude | `~/.claude/` | Claude Code 配置（模板化：WSL 渲染裁掉写死的代理） |
 | codex | `~/.codex/AGENTS.md` | Codex 指令（符号链接到 Claude 的 CLAUDE.md） |
-| kimi | `~/.kimi-code/config.toml`、`~/.kimi-code/tui.toml` | Kimi Code CLI（config.toml 用 `create_` 只铺种子，CLI 会自己回写；tui.toml 全量纳管。凭据目录不纳管） |
+| kimi | `~/.kimi-code/config.toml`、`~/.kimi-code/tui.toml` | Kimi Code CLI（config.toml 用 `modify_` 脚本只钉住强制项、其余透传给 CLI；tui.toml 全量纳管。凭据目录不纳管） |
 | agents | `~/.agents/skills/` | 共享 agent skills（claude / codex 共用） |
 | cargo | `~/.cargo/config.toml` | Rust cargo 配置（模板化：WSL 渲染无 proxy 行） |
 | kitty | `~/.config/kitty/` | Kitty 终端 |

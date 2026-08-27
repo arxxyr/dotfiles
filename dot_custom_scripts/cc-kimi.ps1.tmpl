@@ -4,8 +4,9 @@ param(
 [ValidateSet('start','kill')]
 [string]$Action = 'start',
 
-[string]$Model = 'kimi-code/k3',
-[string]$Effort = 'max',
+# 默认值取自 .chezmoidata.toml 的 [kimi]，与 config.toml 的 modify_ 强制项同源
+[string]$Model = '{{ .kimi.model }}',
+[string]$Effort = '{{ .kimi.effort }}',
 
 [Parameter(ValueFromRemainingArguments=$true)]
 [string[]]$Rest

@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+# chezmoi modify_ 脚本：目标文件当前内容从 stdin 进来，stdout 即新内容。
+#
+# 为什么不是普通 .tmpl 全量纳管：config.toml 是 Kimi Code CLI 自己会写的文件——
+# 启动时从服务端刷模型目录、/model 持久化 default_model、升级跑配置迁移
+# （0.38 那次 thinking-effort-max-to-high 就把 effort 从 max 改成了 high）。
+# 全量纳管等于每次 apply 把 CLI 刚写的内容拍掉，chezmoi diff 天天报噪音；
+# modify_ 只钉住下面几个键，其余原样透传，两边互不打架。
+#
+# 强制项（取值来自 .chezmoidata.toml 的 [kimi]，与 cc-kimi 共用同一处）：
+#   default_model
+#   [thinking] enabled = true
+#   [thinking] effort
+# 目标缺失时（新机器 bootstrap）stdin 为空，改用下方 SEED 走同一套强制逻辑。
+import re
+import sys
+
+MODEL = "{{ .kimi.model }}"
+EFFORT = "{{ .kimi.effort }}"
+
+SEED = """
+default_model = "kimi-code/k3"
+
+[providers."managed:kimi-code"]
+type = "kimi"
+api_key = ""
+base_url = "https://api.kimi.com/coding/v1"
+
+[providers."managed:kimi-code".oauth]
+storage = "file"
+key = "oauth/kimi-code"
+
+[models."kimi-code/kimi-for-coding"]
+provider = "managed:kimi-code"
+model = "kimi-for-coding"
+max_context_size = 262144
+capabilities = [ "thinking", "always_thinking", "image_in", "video_in", "tool_use" ]
+display_name = "K2.7 Coding"
+
+[models."kimi-code/kimi-for-coding-highspeed"]
+provider = "managed:kimi-code"
+model = "kimi-for-coding-highspeed"
+max_context_size = 262144
+capabilities = [ "thinking", "always_thinking", "image_in", "video_in", "tool_use" ]
+display_name = "K2.7 Coding Highspeed"
+
+[models."kimi-code/k3"]
+provider = "managed:kimi-code"
+model = "k3"
+max_context_size = 1048576
+capabilities = [ "thinking", "always_thinking", "image_in", "video_in", "tool_use" ]
+display_name = "K3"
+support_efforts = [ "low", "high", "max" ]
+default_effort = "high"
+
+[models."kimi-code/k3-256k"]
+provider = "managed:kimi-code"
+model = "k3-256k"
+max_context_size = 262144
+capabilities = [ "thinking", "always_thinking", "image_in", "tool_use" ]
+display_name = "K3-256k"
+support_efforts = [ "low", "high", "max" ]
+default_effort = "high"
+
+[thinking]
+enabled = true
+effort = "max"
+
+[services.moonshot_search]
+base_url = "https://api.kimi.com/coding/v1/search"
+api_key = ""
+
+[services.moonshot_search.oauth]
+storage = "file"
+key = "oauth/kimi-code"
+
+[services.moonshot_fetch]
+base_url = "https://api.kimi.com/coding/v1/fetch"
+api_key = ""
+
+[services.moonshot_fetch.oauth]
+storage = "file"
+key = "oauth/kimi-code"
+"""
+
+SECTION_RE = re.compile(r"^\s*\[+([^\[\]]*)\]+\s*$")
+
+
+def enforce(text):
+    """只改强制项所在的行，其余（含注释、模型目录、键序）逐行原样保留。"""
+    out = []
+    section = None      # None 表示还在顶层（第一个 [section] 之前）
+    left_top = False
+    has_default_model = False
+    has_thinking = False
+    thinking_keys = set()
+
+    def flush_thinking():
+        if "enabled" not in thinking_keys:
+            out.append("enabled = true")
+        if "effort" not in thinking_keys:
+            out.append('effort = "%s"' % EFFORT)
+
+    for line in text.splitlines():
+        m = SECTION_RE.match(line)
+        if m is not None:
+            if section is None and not left_top:
+                if not has_default_model:
+                    out.append('default_model = "%s"' % MODEL)
+                    out.append("")
+                left_top = True
+            elif section == "thinking":
+                flush_thinking()
+            section = m.group(1).strip()
+            if section == "thinking":
+                has_thinking = True
+            out.append(line)
+            continue
+
+        if section is None:
+            if re.match(r"^\s*default_model\s*=", line):
+                out.append('default_model = "%s"' % MODEL)
+                has_default_model = True
+                continue
+        elif section == "thinking":
+            if re.match(r"^\s*effort\s*=", line):
+                out.append('effort = "%s"' % EFFORT)
+                thinking_keys.add("effort")
+                continue
+            if re.match(r"^\s*enabled\s*=", line):
+                out.append("enabled = true")
+                thinking_keys.add("enabled")
+                continue
+        out.append(line)
+
+    if section == "thinking":
+        flush_thinking()
+    elif section is None and not has_default_model:
+        out.append('default_model = "%s"' % MODEL)
+
+    if not has_thinking:
+        if out and out[-1].strip():
+            out.append("")
+        out.append("[thinking]")
+        out.append("enabled = true")
+        out.append('effort = "%s"' % EFFORT)
+
+    return "\n".join(out).rstrip("\n") + "\n"
+
+
+current = sys.stdin.read()
+sys.stdout.write(enforce(current if current.strip() else SEED.strip("\n")))

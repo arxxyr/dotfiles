@@ -107,7 +107,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | shell | `~/.config/shell/profile.sh` | Shared PATH/env bootstrap (cargo, nvm, uv, custom scripts, kimi-code) |
 | claude | `~/.claude/` | Claude Code settings (templated: WSL render drops hardcoded proxy) |
 | codex | `~/.codex/AGENTS.md` | Codex instructions (symlink to Claude's CLAUDE.md) |
-| kimi | `~/.kimi-code/config.toml`, `~/.kimi-code/tui.toml` | Kimi Code CLI (config.toml is `create_`-seeded only — the CLI rewrites it; tui.toml fully managed. Credentials not managed) |
+| kimi | `~/.kimi-code/config.toml`, `~/.kimi-code/tui.toml` | Kimi Code CLI (config.toml uses a `modify_` script — pins only the enforced keys, passes the rest through to the CLI; tui.toml fully managed. Credentials not managed) |
 | agents | `~/.agents/skills/` | Shared agent skills (claude / codex) |
 | cargo | `~/.cargo/config.toml` | Rust cargo config (templated: no proxy line on WSL) |
 | kitty | `~/.config/kitty/` | Kitty terminal |

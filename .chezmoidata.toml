@@ -6,3 +6,9 @@
 # Linux 网关地址走 $(proxy_host) 动态获取，仅与本机共用端口
 host = "127.0.0.1"
 port = 10808
+
+[kimi]
+# Kimi Code CLI 的模型与思考档：cc-kimi 的启动参数、config.toml 的强制项共用这一处。
+# 改这里一处，脚本与配置一起跟随，避免两边各写一份再对不上（正是"显示 high / 实际 max"那次的根因）。
+model = "kimi-code/k3"
+effort = "max"

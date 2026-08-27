@@ -13,8 +13,9 @@ set -euo pipefail
 # YoloModeApprove 排第 16 位，中间夹着 SensitiveFileAccessAsk（.env/.ssh/*.pem/*.key…）
 # 和 GitControlPathAccessAsk（写 .git/）。所以 yolo 碰敏感文件仍会弹确认，auto 直接绕过。
 # auto 唯一的代价：AskUserQuestion 被硬禁（策略链第 3 位，配置改不动），agent 不能反问。
-MODEL="${CC_KIMI_MODEL:-kimi-code/k3}"
-EFFORT="${CC_KIMI_EFFORT:-max}"
+# 默认值取自 .chezmoidata.toml 的 [kimi]，与 config.toml 的 modify_ 强制项同源
+MODEL="${CC_KIMI_MODEL:-{{ .kimi.model }}}"
+EFFORT="${CC_KIMI_EFFORT:-{{ .kimi.effort }}}"
 
 resolve_kimi_bin() {
   local bin="${CC_KIMI_BIN:-}"
