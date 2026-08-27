@@ -98,6 +98,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 
 | 配置 | 路径 | 说明 |
 |---|---|---|
+| chezmoi 自身 | `~/.config/chezmoi/chezmoi.toml` | 由源仓库根目录 `.chezmoi.toml.tmpl` 生成（chezmoi 拒绝把自己的配置当普通文件纳管）；关掉 autoCommit/autoPush，提交改为手动 |
 | zsh | `~/.zshrc`、`~/.p10k.zsh` | Zsh + Powerlevel10k（含 nvm 加载器） |
 | bash | `~/.bashrc` | Bash 配置（含 nvm 加载器 + 补全） |
 | shell | `~/.config/shell/profile.sh` | 共享 PATH/env 引导（cargo、nvm、uv、自定义脚本、kimi-code） |

@@ -1,0 +1,15 @@
+# chezmoi 自身的配置。它拒绝被当普通文件纳管
+#   （chezmoi add 会报 "cannot add chezmoi's config file to chezmoi"），
+# 官方机制就是源仓库根目录这份模板：chezmoi init 时据此生成
+# ~/.config/chezmoi/chezmoi.toml。
+#
+# 注意与其他纳管文件的区别：这份不由 chezmoi apply 收敛，改完要跑 chezmoi init
+# 重新生成；apply 只会在检测到模板比配置新时给出提示。
+
+[git]
+    # 两者刻意关闭：开着时 chezmoi forget / add 这类改动源仓库的命令会立刻自动
+    # 提交并推送，还会把工作区里当时未提交的改动一并卷进去，生成
+    # "Add X Remove X Remove Y" 这种不符合 Conventional Commits 规范的消息。
+    # 改为手动：改源文件 → chezmoi diff → chezmoi apply → git add/commit/push。
+    autoCommit = false
+    autoPush = false

@@ -102,6 +102,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 
 | Config | Path | Description |
 |---|---|---|
+| chezmoi itself | `~/.config/chezmoi/chezmoi.toml` | Generated from `.chezmoi.toml.tmpl` at the source root (chezmoi refuses to manage its own config as a regular file); autoCommit/autoPush disabled, commits are manual |
 | zsh | `~/.zshrc`, `~/.p10k.zsh` | Zsh + Powerlevel10k (loads nvm) |
 | bash | `~/.bashrc` | Bash config (loads nvm + completion) |
 | shell | `~/.config/shell/profile.sh` | Shared PATH/env bootstrap (cargo, nvm, uv, custom scripts, kimi-code) |
