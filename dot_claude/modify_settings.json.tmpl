@@ -1,0 +1,85 @@
+{{- /* WSL：settings 的 env 优先级高于进程环境变量，写死 127.0.0.1 会盖掉
+     cc-claude 动态注入的网关代理（NAT 下 127.0.0.1 是虚拟机自己），故裁掉，
+     代理职责归 cc-claude；其余平台代理在本机，保持 127.0.0.1 */ -}}
+{{- $wsl := and (eq .chezmoi.os "linux") (contains "microsoft" (lower .chezmoi.kernel.osrelease)) -}}
+#!/usr/bin/env python3
+# chezmoi modify_ 脚本：目标文件当前内容从 stdin 进来，stdout 即新内容。
+#
+# 为什么不是普通全量纳管：settings.json 由 Claude Code 自己回写——
+#   /model 切换会改写 model 键（本会话就亲眼见它把 claude-fable-5[1m] 抹掉）
+#   权限弹窗选 "always allow" 会往 permissions.allow 里追加条目
+#   /config 改主题等设置同样整份重写
+# 全量纳管时每次 apply 都把 allow 清单打回空数组，攒了多久的放行规则一次清光。
+#
+# 三档处理：
+#   强制（源赢）      env、statusLine、enabledPlugins 及各标量键
+#                     （env 必须整体替换而非合并：WSL 分支刻意不写 HTTP_PROXY，
+#                      合并会把上一次非 WSL 留下的代理键保住，正好破坏那段逻辑）
+#   并集（两边都留）  permissions.allow / deny，源在前、本机攒的在后、去重
+#   透传（目标赢）    其余一切，含将来版本新增的任何键
+import json
+import sys
+
+ENFORCE = json.loads(r'''
+{
+  "env": {
+{{- if not $wsl }}
+    "HTTP_PROXY": "http://{{ .proxy.host }}:{{ .proxy.port }}",
+    "HTTPS_PROXY": "http://{{ .proxy.host }}:{{ .proxy.port }}",
+{{- end }}
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": []
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash {{ .chezmoi.homeDir | replace "\\" "/" }}/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true,
+    "huggingface-skills@claude-plugins-official": true
+  },
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "xhigh",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark-daltonized",
+  "teammateMode": "auto",
+  "model": "claude-fable-5[1m]"
+}
+''')
+
+raw = sys.stdin.read()
+try:
+    data = json.loads(raw) if raw.strip() else {}
+except json.JSONDecodeError:
+    data = {}                       # 目标被写坏时按空处理，用强制项重建
+if not isinstance(data, dict):
+    data = {}
+
+src_perms = ENFORCE.get("permissions") or {}
+cur_perms = data.get("permissions") or {}
+perms = {}
+for key in ("allow", "deny"):
+    seen = set()
+    merged = []
+    for item in list(src_perms.get(key) or []) + list(cur_perms.get(key) or []):
+        marker = json.dumps(item, sort_keys=True, ensure_ascii=False)
+        if marker not in seen:
+            seen.add(marker)
+            merged.append(item)
+    perms[key] = merged
+for key, value in cur_perms.items():        # permissions 下的其他键透传
+    if key not in perms:
+        perms[key] = value
+
+out = dict(data)                            # 先整份透传目标
+for key, value in ENFORCE.items():          # 再用强制项就地覆盖（已存在的键保持原位置）
+    out[key] = value
+out["permissions"] = perms
+
+json.dump(out, sys.stdout, indent=2, ensure_ascii=False)
+sys.stdout.write("\n")
