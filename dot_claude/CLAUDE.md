@@ -437,8 +437,12 @@ package/
 
 | 内容 | 权威源 | 符号链接 |
 |------|--------|----------|
-| Agent 指令 | `~/.claude/CLAUDE.md`（本文件） | `~/.codex/AGENTS.md` → 本文件 |
+| Agent 指令 | `~/.claude/CLAUDE.md`（本文件） | `~/.codex/AGENTS.md`、`~/.agents/AGENTS.md` → 本文件 |
 | Agent skills | `~/.agents/skills/` | `~/.claude/skills/*`、`~/.codex/skills/*` |
+
+- Kimi Code CLI 不读 `~/CLAUDE.md`，也不读裸的 `~/AGENTS.md`。它的用户级发现顺序是
+  `~/.kimi-code/AGENTS.md` → `~/.agents/AGENTS.md`（或 `agents.md`），两处**分别加载会叠加**，
+  所以只在通用位置 `~/.agents/AGENTS.md` 建链，不要两处都建
 
 - **严禁直接修改目标文件**（如 `~/.claude/CLAUDE.md`、`~/.cargo/config.toml`）——下次 `chezmoi apply` 会被源文件覆盖
 - 正确流程：改源文件 → 预览 → 应用 → 提交

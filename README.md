@@ -105,7 +105,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | claude | `~/.claude/` | Claude Code 配置（模板化：WSL 渲染裁掉写死的代理） |
 | codex | `~/.codex/AGENTS.md`、`~/.codex/config.toml`、`~/.codex/skills/` | Codex 指令（符号链接到 Claude 的 CLAUDE.md）；config.toml 用 `modify_` 脚本只钉住 model/effort/status_line，`[projects]` 取并集，nux 计数器等透传 |
 | kimi | `~/.kimi-code/config.toml`、`~/.kimi-code/tui.toml` | Kimi Code CLI（config.toml 用 `modify_` 脚本只钉住强制项、其余透传给 CLI；tui.toml 全量纳管。凭据目录不纳管） |
-| agents | `~/.agents/skills/` | 共享 agent skills（claude / codex 共用） |
+| agents | `~/.agents/skills/`、`~/.agents/AGENTS.md` | 共享 agent skills（claude / codex 共用）；AGENTS.md 符号链接到 CLAUDE.md，供 kimi 读取（它的通用用户级位置） |
 | cargo | `~/.cargo/config.toml` | Rust cargo 配置（模板化：WSL 渲染无 proxy 行） |
 | kitty | `~/.config/kitty/` | Kitty 终端 |
 | alacritty | `~/.config/alacritty/` | Alacritty 终端 |

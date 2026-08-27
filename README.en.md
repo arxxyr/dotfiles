@@ -109,7 +109,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | claude | `~/.claude/` | Claude Code settings (templated: WSL render drops hardcoded proxy) |
 | codex | `~/.codex/AGENTS.md`, `~/.codex/config.toml`, `~/.codex/skills/` | Codex instructions (symlink to Claude's CLAUDE.md); config.toml uses a `modify_` script pinning only model/effort/status_line, unions `[projects]`, passes nux counters through |
 | kimi | `~/.kimi-code/config.toml`, `~/.kimi-code/tui.toml` | Kimi Code CLI (config.toml uses a `modify_` script — pins only the enforced keys, passes the rest through to the CLI; tui.toml fully managed. Credentials not managed) |
-| agents | `~/.agents/skills/` | Shared agent skills (claude / codex) |
+| agents | `~/.agents/skills/`, `~/.agents/AGENTS.md` | Shared agent skills (claude / codex); AGENTS.md symlinks to CLAUDE.md so kimi picks it up (its generic user-level location) |
 | cargo | `~/.cargo/config.toml` | Rust cargo config (templated: no proxy line on WSL) |
 | kitty | `~/.config/kitty/` | Kitty terminal |
 | alacritty | `~/.config/alacritty/` | Alacritty terminal |
