@@ -103,6 +103,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | shell | `~/.config/shell/profile.sh` | 共享 PATH/env 引导（cargo、nvm、uv、自定义脚本、kimi-code） |
 | claude | `~/.claude/` | Claude Code 配置（模板化：WSL 渲染裁掉写死的代理） |
 | codex | `~/.codex/AGENTS.md` | Codex 指令（符号链接到 Claude 的 CLAUDE.md） |
+| kimi | `~/.kimi-code/config.toml`、`~/.kimi-code/tui.toml` | Kimi Code CLI（config.toml 用 `create_` 只铺种子，CLI 会自己回写；tui.toml 全量纳管。凭据目录不纳管） |
 | agents | `~/.agents/skills/` | 共享 agent skills（claude / codex 共用） |
 | cargo | `~/.cargo/config.toml` | Rust cargo 配置（模板化：WSL 渲染无 proxy 行） |
 | kitty | `~/.config/kitty/` | Kitty 终端 |
@@ -133,6 +134,7 @@ brew 安装的程序有效。
 | `cc-proxy-host` | 输出代理宿主机（WSL NAT → 网关，否则 127.0.0.1） |
 | `cc-claude [kill]` | 带代理启动 Claude Code / 杀掉全部 Claude 进程 |
 | `cc-codex [kill]` | 带代理启动 Codex CLI |
+| `cc-kimi [kill]` | 启动 Kimi Code CLI（K3 + max 思考 + auto 权限，直连不走代理） |
 | `cc-codex-app` | macOS：给 Codex 桌面 App 注入代理环境（launchctl） |
 | `source cc-proxy [off]` | 当前 shell 设置/清除代理 env + git 代理 |
 | `cc-pc <cmd>` | 经动态生成配置的 proxychains 执行命令 |
@@ -142,6 +144,8 @@ brew 安装的程序有效。
 
 ```bash
 cc-claude                    # 带代理启动 Claude（宿主机自动探测）
+cc-kimi                      # 启动 Kimi（K3 / max 思考 / auto 权限）
+cc-kimi -c                   # 以 - 开头的参数透传给 kimi：续上次会话
 source cc-proxy              # 当前 shell 启用代理 env
 source cc-proxy off          # 关闭代理
 cc-pc git clone <url>        # 单次命令走 proxychains

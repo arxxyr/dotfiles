@@ -107,6 +107,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | shell | `~/.config/shell/profile.sh` | Shared PATH/env bootstrap (cargo, nvm, uv, custom scripts, kimi-code) |
 | claude | `~/.claude/` | Claude Code settings (templated: WSL render drops hardcoded proxy) |
 | codex | `~/.codex/AGENTS.md` | Codex instructions (symlink to Claude's CLAUDE.md) |
+| kimi | `~/.kimi-code/config.toml`, `~/.kimi-code/tui.toml` | Kimi Code CLI (config.toml is `create_`-seeded only — the CLI rewrites it; tui.toml fully managed. Credentials not managed) |
 | agents | `~/.agents/skills/` | Shared agent skills (claude / codex) |
 | cargo | `~/.cargo/config.toml` | Rust cargo config (templated: no proxy line on WSL) |
 | kitty | `~/.config/kitty/` | Kitty terminal |
@@ -139,6 +140,7 @@ automatically. `sudo` strips env vars; for root use `cc-install` / `cc-pc` (expl
 | `cc-proxy-host` | Print proxy host (WSL NAT → gateway, else 127.0.0.1) |
 | `cc-claude [kill]` | Launch Claude Code with proxy / kill all Claude processes |
 | `cc-codex [kill]` | Launch Codex CLI with proxy |
+| `cc-kimi [kill]` | Launch Kimi Code CLI (K3 + max thinking + auto permission, no proxy) |
 | `cc-codex-app` | macOS: set proxy env (launchctl) for Codex desktop app |
 | `source cc-proxy [off]` | Set/unset proxy env + git proxy for current shell |
 | `cc-pc <cmd>` | Run command through proxychains with dynamically generated conf |
@@ -148,6 +150,8 @@ automatically. `sudo` strips env vars; for root use `cc-install` / `cc-pc` (expl
 
 ```bash
 cc-claude                    # Start Claude with proxy (host auto-detected)
+cc-kimi                      # Start Kimi (K3 / max thinking / auto permission)
+cc-kimi -c                   # Args starting with - pass through: resume last session
 source cc-proxy              # Enable proxy env in current shell
 source cc-proxy off          # Disable proxy
 cc-pc git clone <url>        # One-off command through proxychains

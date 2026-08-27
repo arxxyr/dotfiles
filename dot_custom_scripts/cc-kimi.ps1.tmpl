@@ -1,0 +1,49 @@
+{{- if eq .chezmoi.os "windows" }}
+param(
+[Parameter(Position=0)]
+[ValidateSet('start','kill')]
+[string]$Action = 'start',
+
+[string]$Model = 'kimi-code/k3',
+[string]$Effort = 'max',
+
+[Parameter(ValueFromRemainingArguments=$true)]
+[string[]]$Rest
+)
+
+$ErrorActionPreference = 'Stop'
+
+switch ($Action) {
+'kill' {
+$procs = Get-Process -Name 'kimi' -ErrorAction SilentlyContinue
+if (-not $procs) {
+Write-Host "[OK] No kimi processes running"
+return
+}
+Write-Host "Killing kimi processes:"
+$procs | ForEach-Object { Write-Host " PID $($_.Id) - $($_.ProcessName)" }
+$procs | Stop-Process -Force
+Write-Host "[OK] Done"
+}
+'start' {
+# 与 bash 版 cc-kimi 对齐：直连 api.kimi.com，不设代理、不改时区。
+# 思考档走 forcedEffort 通道，优先级高于 config.toml 与模型 default_effort，且不写回配置文件。
+$env:KIMI_MODEL_THINKING_EFFORT = $Effort
+
+Write-Host "Model:  $Model"
+Write-Host "Effort: $Effort (locked via KIMI_MODEL_THINKING_EFFORT)"
+Write-Host "Mode:   auto (--auto：全自主，工具调用全自动批准且不再反问)"
+
+$kimiExe = Get-Command 'kimi' -ErrorAction SilentlyContinue
+if (-not $kimiExe) {
+$default = Join-Path $env:USERPROFILE '.kimi-code\bin\kimi.exe'
+if (Test-Path $default) { $kimiExe = $default }
+else { throw 'kimi not found. 把 %USERPROFILE%\.kimi-code\bin 加进 PATH，或先装 Kimi Code CLI' }
+}
+
+$kimiArgs = @('--auto', '--model', $Model)
+if ($Rest) { $kimiArgs += $Rest }
+& $kimiExe @kimiArgs
+}
+}
+{{ end -}}

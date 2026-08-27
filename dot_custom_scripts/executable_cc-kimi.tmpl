@@ -1,0 +1,104 @@
+{{- if ne .chezmoi.os "windows" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Kimi Code CLI 启动器：直连 api.kimi.com，不设代理、不改时区（与 cc-claude 的差异点）。
+# 固定 K3 + max 思考档 + auto 权限模式；CC_KIMI_* 可覆盖。
+#
+# 变量命名注意：不要用 KIMI_MODEL / KIMI_BASE_URL / KIMI_API_KEY —— CLI 见到这组变量会
+# 改走「env 定义模型」分支，凭空造一个 provider，绕开 managed:kimi-code 的 OAuth 登录。
+#
+# 为什么是 --auto 而不是 --yolo：两个 approve 策略实现完全相同（都是无条件 approve），
+# 差别在策略链顺序（first non-undefined result wins）——AutoModeApprove 排第 6 位，
+# YoloModeApprove 排第 16 位，中间夹着 SensitiveFileAccessAsk（.env/.ssh/*.pem/*.key…）
+# 和 GitControlPathAccessAsk（写 .git/）。所以 yolo 碰敏感文件仍会弹确认，auto 直接绕过。
+# auto 唯一的代价：AskUserQuestion 被硬禁（策略链第 3 位，配置改不动），agent 不能反问。
+MODEL="${CC_KIMI_MODEL:-kimi-code/k3}"
+EFFORT="${CC_KIMI_EFFORT:-max}"
+
+resolve_kimi_bin() {
+  local bin="${CC_KIMI_BIN:-}"
+  if [[ -z "$bin" ]]; then
+    bin="$(command -v kimi 2>/dev/null || true)"
+  fi
+  if [[ -z "$bin" && -x "$HOME/.kimi-code/bin/kimi" ]]; then
+    bin="$HOME/.kimi-code/bin/kimi"
+  fi
+  if [[ -z "$bin" ]]; then
+    echo "kimi not found. 把 ~/.kimi-code/bin 加进 PATH，或先装 Kimi Code CLI" >&2
+    return 1
+  fi
+  printf '%s\n' "$bin"
+}
+
+kill_kimi() {
+  local pids remaining
+  pids=$(pgrep -x kimi 2>/dev/null || true)
+  if [[ -z "$pids" ]]; then
+    echo "[OK] No kimi processes running"
+    return 0
+  fi
+  echo "Killing kimi processes"
+  echo "  PIDs: $pids"
+  kill $pids 2>/dev/null || true
+  sleep 0.5
+  remaining=$(pgrep -x kimi 2>/dev/null || true)
+  [[ -n "$remaining" ]] && kill -9 $remaining 2>/dev/null || true
+  echo "[OK] Done"
+}
+
+start_kimi() {
+  local bin arg prompt_mode=0
+  local -a flags
+
+  # 非交互的 -p/--prompt 与 --auto 互斥（CLI 会直接报 OptionConflictError），
+  # 而 print 模式本身就走 withPrintModeDefaults 的放行默认值，去掉 --auto 不丢权限
+  for arg in "$@"; do
+    case "$arg" in
+    -p | --prompt | --prompt=*)
+      prompt_mode=1
+      ;;
+    esac
+  done
+
+  bin="$(resolve_kimi_bin)"
+
+  flags=(--model "$MODEL")
+  if ((prompt_mode == 0)); then
+    flags=(--auto "${flags[@]}")
+  fi
+
+  # 思考档锁定：CLI 内部按 forcedEffort 处理，优先级高于 config.toml 的
+  # thinking.effort 与模型 default_effort（K3 出厂 high），且不写回 config.toml——
+  # 既扛得住 0.38 那次 max→high 的迁移，也不污染 chezmoi 纳管的配置文件。
+  export KIMI_MODEL_THINKING_EFFORT="$EFFORT"
+
+  echo "Model:  $MODEL"
+  echo "Effort: $EFFORT (locked via KIMI_MODEL_THINKING_EFFORT)"
+  if ((prompt_mode == 0)); then
+    echo "Mode:   auto (--auto：全自主，工具调用全自动批准且不再反问)"
+  else
+    echo "Mode:   print (-p 与 --auto 互斥，已省略；print 模式自带放行默认值)"
+  fi
+  exec "$bin" "${flags[@]}" "$@"
+}
+
+case "${1:-start}" in
+kill)
+  kill_kimi
+  ;;
+start | "")
+  shift || true
+  start_kimi "$@"
+  ;;
+-*)
+  # 裸参数直接透传，例如 cc-kimi -c（续上次会话）、cc-kimi -S（挑会话）
+  start_kimi "$@"
+  ;;
+*)
+  echo "Usage: cc-kimi [start [kimi 参数…]|kill]"
+  echo "       cc-kimi -c            # 参数以 - 开头时直接透传给 kimi"
+  exit 1
+  ;;
+esac
+{{ end -}}
