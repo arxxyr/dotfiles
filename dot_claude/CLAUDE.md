@@ -440,6 +440,12 @@ package/
 | Agent 指令 | `~/.claude/CLAUDE.md`（本文件） | `~/.codex/AGENTS.md`、`~/.agents/AGENTS.md` → 本文件 |
 | Agent skills | `~/.agents/skills/` | `~/.claude/skills/*`、`~/.codex/skills/*` |
 
+- Claude Code 反过来**不读 `AGENTS.md`**（2.1.247 实测：项目里只有 `AGENTS.md` 时读到的是空），
+  且**没有任何设置能开启**——它没有 codex 那种 `project_doc_fallback_filenames` 机制，
+  只能逐仓库 `ln -s AGENTS.md CLAUDE.md`。目前 `repo/blog`（自有仓库）与 `repo/robot/dimos`
+  （上游第三方，宜用 `.git/info/exclude` 做本机私有链）两处只有 `AGENTS.md`，尚未建链；
+  新仓库若只写 `AGENTS.md`，Claude Code 这侧要手动补一次
+
 - Codex CLI 只读 `~/.codex/AGENTS.md`（不读 `~/.agents/AGENTS.md`，故与 kimi 那条链不冲突）。
   两点要留神：`AGENTS.override.md` 在同级会**完全顶替** `AGENTS.md`（全局、项目级皆然），
   谁往 `~/.codex/` 扔一个就等于整份指令失效；项目级默认只认 `AGENTS.md`，
