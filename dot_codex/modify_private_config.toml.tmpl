@@ -9,7 +9,8 @@
 # 而 CLI 一写又立刻变成漂移，两边来回打架。
 #
 # 三档处理：
-#   强制（源赢）      model、model_reasoning_effort、[tui] status_line
+#   强制（源赢）      model、model_reasoning_effort、project_doc_fallback_filenames、
+#                     [tui] status_line
 #   并集（两边都留）  [projects."..."]：种子里目录真实存在的确保存在，本机自己攒的原样保留
 #   透传（目标赢）    其余一切，含 nux 计数器与未来新增的任何段
 # 目标缺失时 stdin 为空，走内置种子逻辑生成完整文件。
@@ -19,6 +20,7 @@ import sys
 
 MODEL = "{{ .codex.model }}"
 EFFORT = "{{ .codex.effort }}"
+DOC_FALLBACKS = "[{{ range $i, $v := .codex.doc_fallback_filenames }}{{ if $i }}, {{ end }}\"{{ $v }}\"{{ end }}]"
 STATUS_LINE = "[{{ range $i, $v := .codex.status_line }}{{ if $i }}, {{ end }}\"{{ $v }}\"{{ end }}]"
 TRUSTED = [
 {{- range .codex.trusted_projects }}
@@ -71,6 +73,7 @@ def enforce(text):
         if section is None:
             set_key(lines, "model", '"%s"' % MODEL)
             set_key(lines, "model_reasoning_effort", '"%s"' % EFFORT)
+            set_key(lines, "project_doc_fallback_filenames", DOC_FALLBACKS)
         elif section == "tui":
             have_tui = True
             set_key(lines, "status_line", STATUS_LINE, skip_first=True)

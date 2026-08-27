@@ -19,5 +19,9 @@ effort = "max"
 # 原来源文件里 /home/loosqk 与 /Users/loosqk 两套路径混在一起，就是各机 re-add 攒出来的。
 model = "gpt-5.6-sol"
 effort = "ultra"
+# 项目级指令回退：仓库只有 CLAUDE.md 没有 AGENTS.md 时（robot/ 下就有三个），
+# codex 默认一份都不读，而 Claude Code 照读不误。语义是回退不是叠加：
+# AGENTS.md 在就用它，缺了才读 CLAUDE.md，不会重复。
+doc_fallback_filenames = ["CLAUDE.md"]
 status_line = ["model-with-reasoning", "git-branch", "context-remaining", "run-state", "current-dir", "five-hour-limit", "weekly-limit", "context-window-size", "used-tokens", "fast-mode", "task-progress"]
 trusted_projects = ["repo/robot/robot-system", ".openclaw", "Documents/bp", "repo/docs/面试"]

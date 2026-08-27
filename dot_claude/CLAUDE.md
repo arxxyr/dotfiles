@@ -440,6 +440,12 @@ package/
 | Agent 指令 | `~/.claude/CLAUDE.md`（本文件） | `~/.codex/AGENTS.md`、`~/.agents/AGENTS.md` → 本文件 |
 | Agent skills | `~/.agents/skills/` | `~/.claude/skills/*`、`~/.codex/skills/*` |
 
+- Codex CLI 只读 `~/.codex/AGENTS.md`（不读 `~/.agents/AGENTS.md`，故与 kimi 那条链不冲突）。
+  两点要留神：`AGENTS.override.md` 在同级会**完全顶替** `AGENTS.md`（全局、项目级皆然），
+  谁往 `~/.codex/` 扔一个就等于整份指令失效；项目级默认只认 `AGENTS.md`，
+  故 config 里开了 `project_doc_fallback_filenames = ["CLAUDE.md"]`——
+  语义是回退不是叠加，`AGENTS.md` 在就用它，缺了才读 `CLAUDE.md`
+
 - Kimi Code CLI 不读 `~/CLAUDE.md`，也不读裸的 `~/AGENTS.md`。它的用户级发现顺序是
   `~/.kimi-code/AGENTS.md` → `~/.agents/AGENTS.md`（或 `agents.md`），两处**分别加载会叠加**，
   所以只在通用位置 `~/.agents/AGENTS.md` 建链，不要两处都建
