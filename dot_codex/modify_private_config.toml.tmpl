@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+# chezmoi modify_ 脚本：目标文件当前内容从 stdin 进来，stdout 即新内容。
+#
+# 为什么不是普通全量纳管：config.toml 由 Codex CLI 自己回写——
+#   [projects."<路径>"] trust_level  每信任一个新目录就追加一条
+#   [tui.model_availability_nux]     模型可用性提示的展示计数，应用自己累加
+#   model / model_reasoning_effort   TUI 里 /model 切换会持久化
+# 全量纳管时每次 apply 都会把这些拍掉（新信任的目录、计数器全丢），
+# 而 CLI 一写又立刻变成漂移，两边来回打架。
+#
+# 三档处理：
+#   强制（源赢）      model、model_reasoning_effort、[tui] status_line
+#   并集（两边都留）  [projects."..."]：种子里目录真实存在的确保存在，本机自己攒的原样保留
+#   透传（目标赢）    其余一切，含 nux 计数器与未来新增的任何段
+# 目标缺失时 stdin 为空，走内置种子逻辑生成完整文件。
+import os
+import re
+import sys
+
+MODEL = "{{ .codex.model }}"
+EFFORT = "{{ .codex.effort }}"
+STATUS_LINE = "[{{ range $i, $v := .codex.status_line }}{{ if $i }}, {{ end }}\"{{ $v }}\"{{ end }}]"
+TRUSTED = [
+{{- range .codex.trusted_projects }}
+    "{{ $.chezmoi.homeDir }}/{{ . }}",
+{{- end }}
+]
+
+SECTION_RE = re.compile(r"^\s*\[+([^\[\]]*)\]+\s*$")
+
+
+def split_blocks(text):
+    """切成 [(段名 或 None, 该段所有行)]；None 表示第一个 [section] 之前的顶层。"""
+    blocks = [(None, [])]
+    for line in text.splitlines():
+        m = SECTION_RE.match(line)
+        if m is not None:
+            blocks.append((m.group(1).strip(), [line]))
+        else:
+            blocks[-1][1].append(line)
+    return blocks
+
+
+def set_key(lines, key, value, skip_first=False):
+    """替换段内 key 行；不存在则插入。skip_first 用于跳过 [section] 头那一行。"""
+    pat = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
+    start = 1 if skip_first else 0
+    for i in range(start, len(lines)):
+        if pat.match(lines[i]):
+            lines[i] = "%s = %s" % (key, value)
+            return lines
+    at = start
+    while at < len(lines) and lines[at].lstrip().startswith("#"):
+        at += 1
+    lines.insert(at, "%s = %s" % (key, value))
+    return lines
+
+
+def project_path(section):
+    m = re.match(r'^projects\."(.*)"$', section)
+    return m.group(1) if m is not None else None
+
+
+def enforce(text):
+    blocks = split_blocks(text)
+
+    have_tui = False
+    present = set()
+    last_project = -1
+    for idx, (section, lines) in enumerate(blocks):
+        if section is None:
+            set_key(lines, "model", '"%s"' % MODEL)
+            set_key(lines, "model_reasoning_effort", '"%s"' % EFFORT)
+        elif section == "tui":
+            have_tui = True
+            set_key(lines, "status_line", STATUS_LINE, skip_first=True)
+        else:
+            path = project_path(section)
+            if path is not None:
+                present.add(path)
+                last_project = idx
+
+    # 只播种本机真实存在的目录：种子是跨机共用的，路径在这台机器上不存在就别写进信任表
+    missing = [p for p in TRUSTED if p not in present and os.path.isdir(p)]
+    if missing:
+        add = []
+        for path in missing:
+            add.append((None, ["", '[projects."%s"]' % path, 'trust_level = "trusted"']))
+        at = last_project + 1 if last_project >= 0 else len(blocks)
+        blocks[at:at] = add
+
+    if not have_tui:
+        blocks.append((None, ["", "[tui]", "status_line = " + STATUS_LINE]))
+
+    out = []
+    for _, lines in blocks:
+        out.extend(lines)
+    return "\n".join(tidy(out)).rstrip("\n") + "\n"
+
+
+def tidy(lines):
+    """版式规整：连续空行折成一行，每个段头前留且只留一个空行。
+    纯排版、不动语义，且幂等——插入位置在哪都能得到同一份输出。"""
+    out = []
+    for line in lines:
+        if not line.strip():
+            if out and out[-1].strip():
+                out.append("")
+            continue
+        if SECTION_RE.match(line) and out and out[-1].strip():
+            out.append("")
+        out.append(line)
+    while out and not out[0].strip():
+        out.pop(0)
+    return out
+
+
+sys.stdout.write(enforce(sys.stdin.read()))

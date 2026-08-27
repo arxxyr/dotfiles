@@ -12,3 +12,12 @@ port = 10808
 # 改这里一处，脚本与配置一起跟随，避免两边各写一份再对不上（正是"显示 high / 实际 max"那次的根因）。
 model = "kimi-code/k3"
 effort = "max"
+
+[codex]
+# Codex CLI 的模型与推理档，以及需要跨机同步的受信项目。
+# 受信项目写成相对 $HOME 的路径，模板渲染时拼上本机 homeDir——
+# 原来源文件里 /home/loosqk 与 /Users/loosqk 两套路径混在一起，就是各机 re-add 攒出来的。
+model = "gpt-5.6-sol"
+effort = "ultra"
+status_line = ["model-with-reasoning", "git-branch", "context-remaining", "run-state", "current-dir", "five-hour-limit", "weekly-limit", "context-window-size", "used-tokens", "fast-mode", "task-progress"]
+trusted_projects = ["repo/robot/robot-system", ".openclaw", "Documents/bp", "repo/docs/面试"]
