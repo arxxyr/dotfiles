@@ -100,7 +100,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 |---|---|---|
 | zsh | `~/.zshrc`、`~/.p10k.zsh` | Zsh + Powerlevel10k（含 nvm 加载器） |
 | bash | `~/.bashrc` | Bash 配置（含 nvm 加载器 + 补全） |
-| shell | `~/.config/shell/profile.sh` | 共享 PATH/env 引导（cargo、nvm、uv、自定义脚本） |
+| shell | `~/.config/shell/profile.sh` | 共享 PATH/env 引导（cargo、nvm、uv、自定义脚本、kimi-code） |
 | claude | `~/.claude/` | Claude Code 配置（模板化：WSL 渲染裁掉写死的代理） |
 | codex | `~/.codex/AGENTS.md` | Codex 指令（符号链接到 Claude 的 CLAUDE.md） |
 | agents | `~/.agents/skills/` | 共享 agent skills（claude / codex 共用） |

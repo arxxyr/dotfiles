@@ -104,7 +104,7 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 |---|---|---|
 | zsh | `~/.zshrc`, `~/.p10k.zsh` | Zsh + Powerlevel10k (loads nvm) |
 | bash | `~/.bashrc` | Bash config (loads nvm + completion) |
-| shell | `~/.config/shell/profile.sh` | Shared PATH/env bootstrap (cargo, nvm, uv, custom scripts) |
+| shell | `~/.config/shell/profile.sh` | Shared PATH/env bootstrap (cargo, nvm, uv, custom scripts, kimi-code) |
 | claude | `~/.claude/` | Claude Code settings (templated: WSL render drops hardcoded proxy) |
 | codex | `~/.codex/AGENTS.md` | Codex instructions (symlink to Claude's CLAUDE.md) |
 | agents | `~/.agents/skills/` | Shared agent skills (claude / codex) |

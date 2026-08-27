@@ -1,14 +1,31 @@
 {{- if eq .chezmoi.os "windows" -}}
-$scriptDir = Join-Path $env:USERPROFILE '.custom_scripts'
-
+# 用户级 PATH（HKCU\Environment）；.NET 接口写入后会广播 WM_SETTINGCHANGE，新开终端即生效。
+# 已知取舍：GetEnvironmentVariable 读到的是展开后的值，回写会把 REG_EXPAND_SZ 拍平成 REG_SZ，
+# 路径仍然有效，与旧逻辑一致。逐项按分号切开精确比对（大小写不敏感、忽略尾部反斜杠），
+# 不用 -like 子串匹配（a\b 会误判 a\bc 已存在）；只在确有新增时回写一次
+$pathDirs = @(
+    (Join-Path $env:USERPROFILE '.custom_scripts'),
+    (Join-Path $env:USERPROFILE '.kimi-code\bin')   # Kimi Code CLI，安装目录固定为 ~/.kimi-code/bin
+)
 $currentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-
-if ($currentPath -notlike "*$scriptDir*") {
-    $newPath = "$currentPath;$scriptDir"
-    [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
-    Write-Host "[OK] Added $scriptDir to user PATH"
-} else {
-    Write-Host "[SKIP] $scriptDir already in PATH"
+$pathItems = @()
+if ($currentPath) {
+    $pathItems = @($currentPath -split ';' | Where-Object { $_.Trim() })
+}
+$pathChanged = $false
+foreach ($dir in $pathDirs) {
+    $dirKey = $dir.TrimEnd('\')
+    $exists = $pathItems | Where-Object { $_.Trim().TrimEnd('\') -ieq $dirKey }
+    if ($exists) {
+        Write-Host "[SKIP] $dir already in PATH"
+    } else {
+        $pathItems += $dir
+        $pathChanged = $true
+        Write-Host "[OK] Added $dir to user PATH"
+    }
+}
+if ($pathChanged) {
+    [Environment]::SetEnvironmentVariable('Path', ($pathItems -join ';'), 'User')
 }
 
 try {

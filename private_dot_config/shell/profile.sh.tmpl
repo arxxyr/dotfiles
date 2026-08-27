@@ -46,6 +46,13 @@ export PATH="$HOME/env/zig:$PATH"
 # uv
 [ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
 
+# kimi-code（Kimi Code CLI；安装脚本默认把 export 直写 ~/.zshrc，那是纳管文件、apply 会覆盖，统一收口到这里）
+# 追加到末尾而非前置：该目录还捆了一份 fd，前置会遮蔽 brew/apt 装的系统 fd；kimi 无重名，放末尾照样命中
+case ":$PATH:" in
+    *":$HOME/.kimi-code/bin:"*) ;;
+    *) export PATH="$PATH:$HOME/.kimi-code/bin" ;;
+esac
+
 # 自定义脚本目录
 case ":$PATH:" in
     *":$HOME/.custom_scripts:"*) ;;
