@@ -28,3 +28,7 @@ autoload -U compinit && compinit
 # p10k
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+
+# iTerm2 shell 集成（macOS 上由 iTerm2 安装器追加进 rc，收进模板以免 apply 抹掉；
+# 非 macOS 无此文件，[[ -f ]] 守卫自动跳过，与上面几处加载器同风格）
+[[ -f "$HOME/.iterm2_shell_integration.zsh" ]] && source "$HOME/.iterm2_shell_integration.zsh"
