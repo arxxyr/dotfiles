@@ -20,6 +20,9 @@
 import json
 import sys
 
+# autoUpdatesChannel 纳入强制档：stable 渠道会滞后（2026-09-02 实测 stable=2.1.236、
+# latest=2.1.258），且渠道一切换本机就被静默回退到旧版本（8/28 已装 2.1.251，
+# 8/30 切 stable 后 symlink 打回 2.1.236）。固定 latest，避免再踩这个倒挂。
 ENFORCE = json.loads(r'''
 {
   "env": {
@@ -42,6 +45,7 @@ ENFORCE = json.loads(r'''
     "clangd-lsp@claude-plugins-official": true,
     "huggingface-skills@claude-plugins-official": true
   },
+  "autoUpdatesChannel": "latest",
   "alwaysThinkingEnabled": true,
   "effortLevel": "xhigh",
   "tui": "fullscreen",
