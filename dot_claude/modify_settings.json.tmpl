@@ -23,6 +23,17 @@ import sys
 # autoUpdatesChannel 纳入强制档：stable 渠道会滞后（2026-09-02 实测 stable=2.1.236、
 # latest=2.1.258），且渠道一切换本机就被静默回退到旧版本（8/28 已装 2.1.251，
 # 8/30 切 stable 后 symlink 打回 2.1.236）。固定 latest，避免再踩这个倒挂。
+#
+# 关掉 Claude 在 git 里的一切署名，对齐 CLAUDE.md §4「不加 Co-Authored-By 署名」：
+#   attribution.commit=""        commit 结尾的 Co-Authored-By 等 trailer 全不写
+#   attribution.pr=""            PR 描述里的 "Generated with Claude Code" 不写
+#   attribution.sessionUrl=false web/Remote Control 会话追加的 Claude-Session 链接不写
+# includeCoAuthoredBy 在 2.1.260 已标 deprecated，保留只作旧版本机器的回退。
+# 判定顺序（strings 反查 2.1.260 二进制确认）：
+#   attribution.commitTrailers → attribution.commit/pr → includeCoAuthoredBy
+# 前档一旦存在后档即不参与，故两者并存不打架，等全部机器升级后可删旧键。
+# 之所以进强制档而不是只改一次目标文件：Claude Code 会整份回写 settings.json，
+# 只有源文件每次 apply 压回来才算"永久关掉"。
 ENFORCE = json.loads(r'''
 {
   "env": {
@@ -52,6 +63,12 @@ ENFORCE = json.loads(r'''
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark-daltonized",
   "teammateMode": "auto",
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "includeCoAuthoredBy": false,
   "model": "fable[1m]"
 }
 ''')
