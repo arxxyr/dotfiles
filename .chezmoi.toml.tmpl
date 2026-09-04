@@ -13,3 +13,24 @@
     # 改为手动：改源文件 → chezmoi diff → chezmoi apply → git add/commit/push。
     autoCommit = false
     autoPush = false
+{{- if eq .chezmoi.os "windows" }}
+
+# Windows 没有 shebang 机制：chezmoi 把 modify_ 脚本落成临时文件后直接 CreateProcess，
+# 于是必然报 "%1 is not a valid Win32 application"，三个 modify_ 脚本全部跑不起来
+# （apply 遇错即停，只会看到字典序最靠前的 .claude/settings.json 报错）。
+#
+# interpreters 是官方解法，但它按【扩展名】分发，而 modify_ 临时文件的扩展名跟着
+# 目标文件走——settings.json → json、config.toml → toml，内置表里只有
+# py/rb/pl/nu 等，查不到就退回直接 exec。故显式给这两个扩展名指定 Python。
+# 本仓库这两个扩展名下只有 modify_ 脚本，不会误伤其他脚本；Unix 侧走 shebang
+# 本来就是通的，不设这段，行为保持不变。
+#
+# 优先用 py（Python Launcher，随 python.org 安装进 System32）：它会解析脚本首行的
+# #!/usr/bin/env python3 来挑版本，比写死 python.exe 稳。init 时探测不到就留字面量
+# "py"，交由 apply 时的 PATH 解析。
+{{- $py := or (lookPath "py") (lookPath "python") "py" }}
+[interpreters.json]
+    command = {{ $py | quote }}
+[interpreters.toml]
+    command = {{ $py | quote }}
+{{- end }}

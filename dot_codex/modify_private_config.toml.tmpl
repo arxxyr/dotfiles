@@ -18,6 +18,12 @@ import os
 import re
 import sys
 
+# Windows 的 stdio 默认跟随系统代码页（中文机器是 cp936）：读 UTF-8 目标文件会
+# UnicodeDecodeError，写出去的中文会变成 GBK 字节被 CLI 读成乱码，文本模式还会把
+# \n 翻成 CRLF。这里统一钉死 UTF-8 + LF，保证三端产出逐字节一致。
+sys.stdin.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+
 MODEL = "{{ .codex.model }}"
 EFFORT = "{{ .codex.effort }}"
 DOC_FALLBACKS = "[{{ range $i, $v := .codex.doc_fallback_filenames }}{{ if $i }}, {{ end }}\"{{ $v }}\"{{ end }}]"
