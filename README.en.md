@@ -142,7 +142,7 @@ automatically. `sudo` strips env vars; for root use `cc-install` / `cc-pc` (expl
 | `cc-claude [kill]` | Launch Claude Code with proxy / kill all Claude processes |
 | `cc-codex [kill]` | Launch Codex CLI with proxy |
 | `cc-kimi [kill]` | Launch Kimi Code CLI (K3 + max thinking + auto permission, no proxy) |
-| `cc-codex-app` | macOS: set proxy env (launchctl) for Codex desktop app |
+| `cc-codex-app [start [path]\|restart [path]\|kill]` | macOS / Windows: launch, restart, or quit the Codex desktop app with a proxy (including the newer ChatGPT name) |
 | `source cc-proxy [off]` | Set/unset proxy env + git proxy for current shell |
 | `cc-pc <cmd>` | Run command through proxychains with dynamically generated conf |
 | `cc-install <pkg>…` | Install packages via proxied apt / brew |

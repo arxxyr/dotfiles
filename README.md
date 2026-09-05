@@ -136,7 +136,7 @@ brew 安装的程序有效。
 | `cc-claude [kill]` | 带代理启动 Claude Code / 杀掉全部 Claude 进程 |
 | `cc-codex [kill]` | 带代理启动 Codex CLI |
 | `cc-kimi [kill]` | 启动 Kimi Code CLI（K3 + max 思考 + auto 权限，直连不走代理） |
-| `cc-codex-app` | macOS：给 Codex 桌面 App 注入代理环境（launchctl） |
+| `cc-codex-app [start [目录]\|restart [目录]\|kill]` | macOS / Windows：带代理启动、重启或退出 Codex 桌面应用（兼容新版 ChatGPT 名称） |
 | `source cc-proxy [off]` | 当前 shell 设置/清除代理 env + git 代理 |
 | `cc-pc <cmd>` | 经动态生成配置的 proxychains 执行命令 |
 | `cc-install <包>…` | 走代理的 apt / brew 安装 |
@@ -145,6 +145,7 @@ brew 安装的程序有效。
 
 ```bash
 cc-claude                    # 带代理启动 Claude（宿主机自动探测）
+cc-codex-app restart         # 桌面应用冷启动，代理参数才会生效
 cc-kimi                      # 启动 Kimi（K3 / max 思考 / auto 权限）
 cc-kimi -c                   # 以 - 开头的参数透传给 kimi：续上次会话
 source cc-proxy              # 当前 shell 启用代理 env
@@ -153,6 +154,22 @@ cc-pc git clone <url>        # 单次命令走 proxychains
 cc-install btop              # 走代理的 apt/brew 安装
 cc-update                    # apt / brew / winget 升级
 cc-synctime                  # UTC+8（默认）；cc-synctime -5 → 纽约
+```
+
+`cc-codex-app` 同时设置后端代理环境变量和 Chromium 的 `--proxy-server`，
+本机地址绕过代理。仅设置 `HTTP_PROXY` / `HTTPS_PROXY` 不能覆盖桌面全部请求，
+可能导致窗口一直停在启动图标。macOS 继续通过 `launchctl` 传递环境变量；
+Windows 使用 `cc-codex-app.ps1`，代理环境仅作用于启动的桌面进程及其子进程。
+两端都可通过 `CODEX_PROXY`、`CODEX_TZ` 覆盖默认代理和时区。
+若应用已在运行，执行 `restart` 才会应用新的代理启动参数。
+
+Windows 会查询协议注册、Microsoft Store 包清单及常规安装目录；自定义安装位置可通过
+`-AppPath` 或 `CODEX_APP_PATH` 指定桌面可执行文件。支持 Windows PowerShell 5.1 / PowerShell 7。
+
+```powershell
+cc-codex-app.ps1 restart 'D:\repo\my project'
+cc-codex-app.ps1 start -AppPath 'D:\Apps\Codex\Codex.exe'
+cc-codex-app.ps1 kill
 ```
 
 ## 速查
