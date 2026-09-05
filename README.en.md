@@ -151,6 +151,7 @@ automatically. `sudo` strips env vars; for root use `cc-install` / `cc-pc` (expl
 
 ```bash
 cc-claude                    # Start Claude with proxy (host auto-detected)
+cc-codex-app start           # Start the app; Windows cold-restarts if its proxy differs
 cc-kimi                      # Start Kimi (K3 / max thinking / auto permission)
 cc-kimi -c                   # Args starting with - pass through: resume last session
 source cc-proxy              # Enable proxy env in current shell
@@ -160,6 +161,12 @@ cc-install btop              # Proxied apt/brew install
 cc-update                    # apt / brew / winget upgrade
 cc-synctime                  # UTC+8 (default); cc-synctime -5 → New York
 ```
+
+`cc-codex-app` sets both backend proxy environment variables and Chromium's
+`--proxy-server`, while bypassing local addresses. On Windows, `start` reuses an
+existing main process only when its proxy matches; a missing, conflicting, different,
+or duplicate proxy setting triggers an automatic cold restart. On macOS, use `restart`
+to apply new proxy launch arguments to an already-running app.
 
 ## Cheat Sheet
 

@@ -104,15 +104,144 @@ function get_codex_app_paths {
     $candidates | Select-Object -Unique | Where-Object { test_codex_desktop $_ }
 }
 
+function split_windows_command_line {
+    param([string]$CommandLine)
+
+    if (-not $CommandLine) { return @() }
+    if (-not ('CodexDesktopLauncher.NativeMethods' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+namespace CodexDesktopLauncher
+{
+    public static class NativeMethods
+    {
+        [DllImport("shell32.dll", SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
+        public static extern IntPtr CommandLineToArgvW(string commandLine, out int argumentCount);
+
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        public static extern IntPtr LocalFree(IntPtr memory);
+    }
+}
+'@
+    }
+
+    $argumentCount = 0
+    $argumentsPointer = [CodexDesktopLauncher.NativeMethods]::CommandLineToArgvW(
+        $CommandLine,
+        [ref]$argumentCount
+    )
+    if ($argumentsPointer -eq [IntPtr]::Zero) {
+        throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error())
+    }
+
+    try {
+        $arguments = [Collections.Generic.List[string]]::new($argumentCount)
+        for ($index = 0; $index -lt $argumentCount; $index++) {
+            $argumentPointer = [Runtime.InteropServices.Marshal]::ReadIntPtr(
+                $argumentsPointer,
+                $index * [IntPtr]::Size
+            )
+            $arguments.Add([Runtime.InteropServices.Marshal]::PtrToStringUni($argumentPointer))
+        }
+        return $arguments.ToArray()
+    } finally {
+        $null = [CodexDesktopLauncher.NativeMethods]::LocalFree($argumentsPointer)
+    }
+}
+
 function get_codex_desktop_processes {
     param([string[]]$AppPaths)
 
     Get-CimInstance Win32_Process -Filter "Name = 'Codex.exe' OR Name = 'ChatGPT.exe'" |
         Where-Object {
-            $_.ExecutablePath -and $_.CommandLine -and
-            $_.CommandLine -notmatch '(?i)(?:^|\s)"?--type(?:=|\s)' -and
-            ($AppPaths -contains $_.ExecutablePath)
+            if (-not $_.ExecutablePath -or -not $_.CommandLine -or
+                $AppPaths -notcontains $_.ExecutablePath) {
+                return $false
+            }
+            $hasProcessType = $false
+            foreach ($argument in @(split_windows_command_line $_.CommandLine)) {
+                $argument = $argument.Trim()
+                if ($argument -eq '--' -or
+                    $argument -cmatch '^(?:--|[-/])single-argument(?:=|$)') {
+                    break
+                }
+                if ($argument -match '(?i)^(?:--|[-/])type(?:=|$)') {
+                    $hasProcessType = $true
+                    break
+                }
+            }
+            return -not $hasProcessType
         }
+}
+
+function normalize_proxy_url {
+    param([string]$Value)
+
+    if (-not $Value -or $Value -cne $Value.Trim() -or $Value -match '[^\x00-\x7F]') {
+        return $null
+    }
+    # 先按原始文本限定为纯 authority，避免不同 .NET 版本对空白和转义路径的 URI 归一化差异。
+    $syntaxMatch = [regex]::Match(
+        $Value,
+        '(?i)^(?:https?|socks[45])://(?<authority>[^/?#\\\x00-\x20\x7F]+)/?$'
+    )
+    if (-not $syntaxMatch.Success) { return $null }
+    $authorityText = $syntaxMatch.Groups['authority'].Value
+    if ($authorityText.Contains('%')) { return $null }
+    $validAuthority = if ($authorityText.StartsWith('[')) {
+        $authorityText -match '^\[[^\[\]]+\](?::[0-9]+)?$'
+    } else {
+        $authorityText -match '^[^:]+(?::[0-9]+)?$'
+    }
+    if (-not $validAuthority) { return $null }
+
+    $uri = $null
+    if (-not [Uri]::TryCreate($Value, [UriKind]::Absolute, [ref]$uri) -or
+        $uri.Scheme -notin @('http', 'https', 'socks4', 'socks5') -or
+        -not $uri.Host -or $uri.UserInfo -or $uri.AbsolutePath -ne '/' -or
+        $uri.Query -or $uri.Fragment -or $uri.IdnHost -match '%') {
+        return $null
+    }
+    $hostName = $uri.IdnHost.ToLowerInvariant()
+    if ($uri.HostNameType -eq [UriHostNameType]::IPv6) {
+        # .NET Framework 会展开 IPv6，.NET 则通常保留压缩形式；统一后保证两种 PowerShell 行为一致。
+        $hostName = "[$([Net.IPAddress]::Parse($hostName).ToString().ToLowerInvariant())]"
+    }
+    $authority = "$($uri.Scheme.ToLowerInvariant())://$hostName"
+    if (-not $uri.IsDefaultPort) { $authority += ":$($uri.Port)" }
+    return $authority
+}
+
+function test_codex_desktop_proxy {
+    param([object]$Desktop, [string]$ProxyUrl, [string]$ProxyBypassList)
+
+    if (-not $Desktop.CommandLine) { return $false }
+    $proxyArguments = [Collections.Generic.List[string]]::new()
+    $bypassArguments = [Collections.Generic.List[string]]::new()
+    $proxyPattern = [regex]::new('(?i)^(?:--|[-/])proxy-server(?:=(?<url>.*))?$')
+    $bypassPattern = [regex]::new('(?i)^(?:--|[-/])proxy-bypass-list(?:=(?<value>.*))?$')
+    $conflictingProxyPattern = [regex]::new(
+        '(?i)^(?:--|[-/])(?:no-proxy-server|proxy-auto-detect|proxy-pac-url)(?:=|$)'
+    )
+    foreach ($argument in @(split_windows_command_line $Desktop.CommandLine)) {
+        $argument = $argument.Trim()
+        if ($argument -eq '--' -or
+            $argument -cmatch '^(?:--|[-/])single-argument(?:=|$)') {
+            break
+        }
+        if ($conflictingProxyPattern.IsMatch($argument)) { return $false }
+        $match = $proxyPattern.Match($argument)
+        if ($match.Success) { $proxyArguments.Add($match.Groups['url'].Value) }
+        $match = $bypassPattern.Match($argument)
+        if ($match.Success) { $bypassArguments.Add($match.Groups['value'].Value) }
+    }
+    # 重复参数的优先级不直观；即使其中一个匹配，也通过冷重启收敛为唯一配置。
+    if ($proxyArguments.Count -ne 1 -or $bypassArguments.Count -ne 1) { return $false }
+    $normalizedProxy = normalize_proxy_url $proxyArguments[0]
+    if (-not $normalizedProxy -or $normalizedProxy -ine $ProxyUrl) { return $false }
+    return $bypassArguments[0] -ceq $ProxyBypassList
 }
 
 function stop_codex_desktop {
@@ -146,11 +275,17 @@ function quote_windows_argument {
 }
 
 function start_codex_desktop {
-    param([string]$Executable, [string]$Workspace, [string]$ProxyUrl, [string]$TimeZone)
+    param(
+        [string]$Executable,
+        [string]$Workspace,
+        [string]$ProxyUrl,
+        [string]$ProxyBypassList,
+        [string]$TimeZone
+    )
 
     $arguments = @(
         "--proxy-server=$ProxyUrl",
-        '--proxy-bypass-list=localhost;127.0.0.1;[::1];*.local',
+        "--proxy-bypass-list=$ProxyBypassList",
         '--open-project',
         $Workspace
     )
@@ -185,26 +320,40 @@ $workspace = Get-Item -LiteralPath $Path
 if ($workspace.PSProvider.Name -ne 'FileSystem' -or -not $workspace.PSIsContainer) {
     throw '工作区必须是存在的文件系统目录。'
 }
-$proxyUri = $null
-if (-not [Uri]::TryCreate($Proxy, [UriKind]::Absolute, [ref]$proxyUri) -or
-    $proxyUri.Scheme -notin @('http', 'https', 'socks4', 'socks5') -or
-    -not $proxyUri.Host -or $proxyUri.UserInfo -or $proxyUri.AbsolutePath -ne '/' -or
-    $proxyUri.Query -or $proxyUri.Fragment) {
-    throw '代理必须是无认证信息的 http/https/socks4/socks5 地址，例如 http://127.0.0.1:10808。'
+$proxyUrl = normalize_proxy_url $Proxy
+if (-not $proxyUrl) {
+    throw '代理必须是无认证信息的 http/https/socks4/socks5 地址，主机名须为 ASCII/Punycode，例如 http://127.0.0.1:10808。'
 }
-$proxyUrl = $proxyUri.GetLeftPart([UriPartial]::Authority)
+$proxyBypassList = 'localhost;127.0.0.1;[::1];*.local'
 $timeZone = if ($env:CODEX_TZ) { $env:CODEX_TZ } else { 'America/New_York' }
 
 if ($Action -eq 'restart') {
     stop_codex_desktop $running
+    $running = @()
 } elseif ($running.Count -gt 0) {
-    Write-Warning '桌面应用已运行，将转交工作区；现有进程的代理和时区不会改变，应用新配置请执行 cc-codex-app restart。'
+    # Electron 单例不会把新启动参数写回已有主进程；代理配置不一致时必须冷重启。
+    $proxyMismatches = @(
+        $running | Where-Object {
+            -not (test_codex_desktop_proxy $_ $proxyUrl $proxyBypassList)
+        }
+    )
+    if ($proxyMismatches.Count -gt 0) {
+        Write-Host "检测到正在运行的桌面应用未使用当前代理，正在冷重启：proxy=$proxyUrl"
+        stop_codex_desktop $running
+        $running = @()
+    } else {
+        Write-Verbose '桌面应用已使用当前代理，将复用现有进程并转交工作区；现有进程的时区不会改变。'
+    }
 }
 
 $executable = $appPaths[0]
 if ($Action -eq 'start' -and $running.Count -gt 0) { $executable = $running[0].ExecutablePath }
 Write-Host "代理：$proxyUrl"
-Write-Host "时区：$timeZone"
+if ($running.Count -gt 0) {
+    Write-Host '时区：沿用现有桌面进程（如需更改请执行 cc-codex-app restart）'
+} else {
+    Write-Host "时区：$timeZone"
+}
 Write-Host "工作区：$($workspace.FullName)"
-start_codex_desktop $executable $workspace.FullName $proxyUrl $timeZone
+start_codex_desktop $executable $workspace.FullName $proxyUrl $proxyBypassList $timeZone
 {{- end -}}
