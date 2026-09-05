@@ -1,0 +1,210 @@
+{{- if eq .chezmoi.os "windows" -}}
+{{ printf "\ufeff" -}}
+[CmdletBinding()]
+param(
+    [Parameter(Position = 0)]
+    [ValidateSet('start', 'restart', 'kill')]
+    [string]$Action = 'start',
+
+    [Parameter(Position = 1)]
+    [string]$Path = '.',
+
+    [string]$AppPath = $env:CODEX_APP_PATH,
+    [string]$Proxy = $(if ($env:CODEX_PROXY) { $env:CODEX_PROXY } else { 'http://{{ .proxy.host }}:{{ .proxy.port }}' })
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version 2.0
+
+function test_codex_desktop {
+    param([string]$Executable)
+
+    if (-not $Executable -or -not (Test-Path -LiteralPath $Executable -PathType Leaf)) { return $false }
+    if ([IO.Path]::GetFileName($Executable) -notmatch '^(Codex|ChatGPT)\.exe$') { return $false }
+    $archive = Join-Path (Split-Path -Parent $Executable) 'resources\app.asar'
+    if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) { return $false }
+
+    # 读取 ASAR 中的 package.json 验证桌面身份，避免选中同名 CLI 或旧版原生 ChatGPT。
+    $reader = $null
+    try {
+        $reader = New-Object IO.BinaryReader([IO.File]::OpenRead($archive))
+        $null = $reader.ReadUInt32()
+        $headerSize = $reader.ReadUInt32()
+        $null = $reader.ReadUInt32()
+        $jsonSize = $reader.ReadUInt32()
+        if ($jsonSize -gt 32MB -or $headerSize -lt $jsonSize) { return $false }
+        $header = [Text.Encoding]::UTF8.GetString($reader.ReadBytes($jsonSize)) | ConvertFrom-Json
+        $entry = $header.files.'package.json'
+        if ($entry.size -gt 1MB) { return $false }
+        $null = $reader.BaseStream.Seek((8 + [long]$headerSize + [long]$entry.offset), 'Begin')
+        $package = [Text.Encoding]::UTF8.GetString($reader.ReadBytes($entry.size)) | ConvertFrom-Json
+        return $package.name -eq 'openai-codex-electron'
+    } catch {
+        return $false
+    } finally {
+        if ($reader) { $reader.Dispose() }
+    }
+}
+
+function get_codex_app_paths {
+    if ($AppPath) {
+        $resolved = (Get-Item -LiteralPath $AppPath).FullName
+        if (-not (test_codex_desktop $resolved)) { throw '-AppPath 必须指向 Codex 桌面版的 Codex.exe 或 ChatGPT.exe。' }
+        return $resolved
+    }
+
+    $candidates = @()
+    # 当前协议注册优先，跟随安装器选择的版本；绝不从 PATH 解析同名 CLI。
+    foreach ($registryRoot in @('HKCU:', 'HKLM:')) {
+        $key = Get-Item -LiteralPath "$registryRoot\Software\Classes\codex\shell\open\command" -ErrorAction SilentlyContinue
+        if ($key) {
+            $command = [Environment]::ExpandEnvironmentVariables([string]$key.GetValue(''))
+            if ($command -match '^\s*"([^"]+\.exe)"' -or $command -match '^\s*(\S+\.exe)(?:\s|$)') {
+                $candidates += $Matches[1]
+            }
+        }
+    }
+
+    # 商店安装目录包含版本号，必须查询当前用户包清单，不能硬编码 WindowsApps 路径。
+    $findStoreApps = {
+        Get-AppxPackage -ErrorAction Stop |
+            Where-Object { $_.Name -match '^OpenAI\.(Codex|ChatGPT)' } |
+            Sort-Object Version -Descending |
+            ForEach-Object {
+                $package = $_
+                $manifest = Get-AppxPackageManifest -Package $package.PackageFullName -ErrorAction Stop
+                foreach ($application in $manifest.Package.Applications.Application) {
+                    $executable = $application.GetAttribute('Executable')
+                    if ($executable) { Join-Path $package.InstallLocation $executable }
+                }
+            }
+    }
+    try {
+        $candidates += @(& $findStoreApps)
+    } catch {
+        # 部分 PowerShell 7 环境不能直接加载 Appx，交给系统自带的 Windows PowerShell 查询。
+        $windowsPowerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if ($PSVersionTable.PSEdition -eq 'Core' -and (Test-Path -LiteralPath $windowsPowerShell)) {
+            $query = '$ErrorActionPreference = ''Stop''; @(& { ' + $findStoreApps.ToString() + ' }) | ConvertTo-Json -Compress'
+            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($query))
+            try {
+                $result = & $windowsPowerShell -NoProfile -NonInteractive -EncodedCommand $encoded 2>$null
+                if ($LASTEXITCODE -eq 0 -and $result) { $candidates += @($result | ConvertFrom-Json) }
+            } catch { Write-Verbose '商店安装目录查询失败，继续检查常规安装目录。' }
+        }
+    }
+
+    foreach ($root in @($env:LOCALAPPDATA, $env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+        if (-not $root) { continue }
+        foreach ($name in @('ChatGPT', 'Codex')) {
+            $candidates += Join-Path $root "$name\$name.exe"
+            $candidates += Join-Path $root "Programs\$name\$name.exe"
+        }
+    }
+    $candidates | Select-Object -Unique | Where-Object { test_codex_desktop $_ }
+}
+
+function get_codex_desktop_processes {
+    param([string[]]$AppPaths)
+
+    Get-CimInstance Win32_Process -Filter "Name = 'Codex.exe' OR Name = 'ChatGPT.exe'" |
+        Where-Object {
+            $_.ExecutablePath -and $_.CommandLine -and
+            $_.CommandLine -notmatch '(?i)(?:^|\s)"?--type(?:=|\s)' -and
+            ($AppPaths -contains $_.ExecutablePath)
+        }
+}
+
+function stop_codex_desktop {
+    param([object[]]$Processes)
+
+    foreach ($desktop in $Processes) {
+        $process = Get-Process -Id $desktop.ProcessId -ErrorAction SilentlyContinue
+        if (-not $process) { continue }
+        try {
+            # 获取进程对象后再确认路径；只终止桌面主进程，不按名称杀 CLI 或整个进程树。
+            if ($process.Path -ine $desktop.ExecutablePath -or $process.HasExited) { continue }
+            Write-Host "正在退出桌面应用：PID=$($process.Id)"
+            $null = $process.CloseMainWindow()
+            if (-not $process.WaitForExit(5000)) {
+                $process.Kill()
+                if (-not $process.WaitForExit(5000)) { throw "桌面进程退出超时：PID=$($process.Id)" }
+            }
+        } finally {
+            $process.Dispose()
+        }
+    }
+}
+
+function quote_windows_argument {
+    param([string]$Value)
+
+    # ProcessStartInfo.Arguments 在 .NET Framework 中需要按 Windows 命令行规则保留引号及尾部反斜杠。
+    $quoted = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
+    $quoted = [regex]::Replace($quoted, '(\\+)$', '$1$1')
+    return '"' + $quoted + '"'
+}
+
+function start_codex_desktop {
+    param([string]$Executable, [string]$Workspace, [string]$ProxyUrl, [string]$TimeZone)
+
+    $arguments = @(
+        "--proxy-server=$ProxyUrl",
+        '--proxy-bypass-list=localhost;127.0.0.1;[::1];*.local',
+        '--open-project',
+        $Workspace
+    )
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $Executable
+    $startInfo.UseShellExecute = $false
+    $startInfo.WorkingDirectory = $Workspace
+    $startInfo.Arguments = ($arguments | ForEach-Object { quote_windows_argument $_ }) -join ' '
+    # 只修改子进程环境；Windows 环境变量不区分大小写，无需另设小写副本。
+    foreach ($name in @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')) {
+        $startInfo.EnvironmentVariables[$name] = $ProxyUrl
+    }
+    $startInfo.EnvironmentVariables['NO_PROXY'] = 'localhost,127.0.0.1,::1,.local'
+    $startInfo.EnvironmentVariables['TZ'] = $TimeZone
+    $process = [Diagnostics.Process]::Start($startInfo)
+    if ($process) { $process.Dispose() }
+}
+
+$appPaths = @(get_codex_app_paths)
+if ($appPaths.Count -eq 0) {
+    throw '未找到 Codex 桌面版。请安装桌面应用，或用 -AppPath 指定其 Codex.exe / ChatGPT.exe（不是 Codex CLI）。'
+}
+$running = @(get_codex_desktop_processes $appPaths)
+if ($Action -eq 'kill') {
+    stop_codex_desktop $running
+    Write-Host '[OK] Codex 桌面应用已退出。'
+    return
+}
+
+# 在退出旧进程前完成输入校验，避免错误路径或代理导致现有工作被中断。
+$workspace = Get-Item -LiteralPath $Path
+if ($workspace.PSProvider.Name -ne 'FileSystem' -or -not $workspace.PSIsContainer) {
+    throw '工作区必须是存在的文件系统目录。'
+}
+$proxyUri = $null
+if (-not [Uri]::TryCreate($Proxy, [UriKind]::Absolute, [ref]$proxyUri) -or
+    $proxyUri.Scheme -notin @('http', 'https', 'socks4', 'socks5') -or
+    -not $proxyUri.Host -or $proxyUri.UserInfo -or $proxyUri.AbsolutePath -ne '/' -or
+    $proxyUri.Query -or $proxyUri.Fragment) {
+    throw '代理必须是无认证信息的 http/https/socks4/socks5 地址，例如 http://127.0.0.1:10808。'
+}
+$proxyUrl = $proxyUri.GetLeftPart([UriPartial]::Authority)
+$timeZone = if ($env:CODEX_TZ) { $env:CODEX_TZ } else { 'America/New_York' }
+
+if ($Action -eq 'restart') {
+    stop_codex_desktop $running
+} elseif ($running.Count -gt 0) {
+    Write-Warning '桌面应用已运行，将转交工作区；现有进程的代理和时区不会改变，应用新配置请执行 cc-codex-app restart。'
+}
+
+$executable = $appPaths[0]
+if ($Action -eq 'start' -and $running.Count -gt 0) { $executable = $running[0].ExecutablePath }
+Write-Host "代理：$proxyUrl"
+Write-Host "时区：$timeZone"
+Write-Host "工作区：$($workspace.FullName)"
+start_codex_desktop $executable $workspace.FullName $proxyUrl $timeZone
+{{- end -}}

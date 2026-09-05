@@ -6,6 +6,7 @@ set -euo pipefail
 PROXY="${CODEX_PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):{{ .proxy.port }}}"
 TZ_VALUE="${CODEX_TZ:-America/New_York}"
 APP_ID="com.openai.codex"
+PROXY_BYPASS_LIST="localhost;127.0.0.1;[::1];*.local"
 
 set_codex_env() {
   export HTTP_PROXY="$PROXY"
@@ -29,41 +30,102 @@ set_codex_env() {
   launchctl setenv TZ "$TZ" >/dev/null 2>&1 || true
 }
 
+app_pids() {
+  local pid executable_path bundle_path bundle_id
+  # 新版桌面主进程已改名 ChatGPT；同时核对 bundle ID，避免误杀 CLI 或其他应用。
+  while IFS= read -r pid; do
+    executable_path="$(ps -p "$pid" -o comm= 2>/dev/null || true)"
+    bundle_path="${executable_path%/Contents/MacOS/*}"
+    [[ "$bundle_path" != "$executable_path" ]] || continue
+    bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+      "$bundle_path/Contents/Info.plist" 2>/dev/null || true)"
+    if [[ "$bundle_id" == "$APP_ID" ]]; then
+      printf '%s\n' "$pid"
+    fi
+  done < <(pgrep -x 'Codex|ChatGPT' 2>/dev/null || true)
+}
+
+wait_for_app_exit() {
+  local attempt
+  for ((attempt = 0; attempt < 40; attempt++)); do
+    [[ -n "$(app_pids)" ]] || return 0
+    sleep 0.25
+  done
+  return 1
+}
+
 kill_app() {
-  local pids
-  pids="$(pgrep -x Codex 2>/dev/null || true)"
+  local pid pids
+  pids="$(app_pids)"
   if [[ -z "$pids" ]]; then
-    echo "[OK] No Codex desktop processes running"
+    echo "[完成] 没有正在运行的 Codex 桌面进程"
     return
   fi
 
-  echo "Quitting Codex desktop"
-  osascript -e "quit app id \"$APP_ID\"" >/dev/null 2>&1 || true
-  sleep 1
-
-  pids="$(pgrep -x Codex 2>/dev/null || true)"
-  if [[ -n "$pids" ]]; then
-    echo "Killing Codex desktop processes"
-    echo "  PIDs: $pids"
-    kill $pids 2>/dev/null || true
-    sleep 0.5
-
-    local remaining
-    remaining="$(pgrep -x Codex 2>/dev/null || true)"
-    [[ -n "$remaining" ]] && kill -9 $remaining 2>/dev/null || true
+  echo "正在退出 Codex 桌面应用"
+  osascript -e 'with timeout of 10 seconds' \
+    -e "quit app id \"$APP_ID\"" \
+    -e 'end timeout' >/dev/null 2>&1 || true
+  if ! wait_for_app_exit; then
+    while IFS= read -r pid; do
+      [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+    done < <(app_pids)
+    if ! wait_for_app_exit; then
+      echo "[错误] 桌面应用退出超时，请关闭后重试" >&2
+      return 1
+    fi
   fi
-
-  echo "[OK] Done"
+  echo "[完成] 桌面应用已退出"
 }
 
 start_app() {
-  local workspace="${1:-.}"
+  local workspace="${1:-.}" restart="${2:-false}" app_path pid command_line
+  if [[ ! -d "$workspace" ]]; then
+    echo "[错误] 工作目录不存在：$workspace" >&2
+    return 1
+  fi
+  workspace="$(cd -- "$workspace" && pwd -P)"
+  if ! command -v codex >/dev/null 2>&1; then
+    echo "[错误] 未找到 codex，请先安装 Codex CLI 并加入 PATH" >&2
+    return 1
+  fi
 
   set_codex_env
 
-  echo "Proxy: $PROXY"
-  echo "TZ:    $TZ"
-  echo "Path:  $workspace"
+  # 按 bundle ID 定位，兼容 Codex.app 改名 ChatGPT.app 及用户 Applications 目录。
+  app_path="$(osascript -e "POSIX path of (path to application id \"$APP_ID\")" 2>/dev/null || true)"
+  if [[ ! -d "$app_path" ]]; then
+    codex app "$workspace"
+    app_path="$(osascript -e "POSIX path of (path to application id \"$APP_ID\")" 2>/dev/null || true)"
+    if [[ ! -d "$app_path" ]]; then
+      echo "[错误] 未找到桌面应用，请完成安装后重试" >&2
+      return 1
+    fi
+    # CLI 安装后可能已启动应用，需要冷启动才能应用 Chromium 参数。
+    kill_app
+  fi
+
+  # 校验目录和启动依赖后再退出，避免输错目录时打断现有工作。
+  if [[ "$restart" == true ]]; then
+    kill_app
+  fi
+
+  while IFS= read -r pid; do
+    command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    if [[ " $command_line " != *" --proxy-server=$PROXY "* ]]; then
+      echo "[提示] 现有桌面进程未使用当前代理；执行 cc-codex-app restart 后生效" >&2
+      break
+    fi
+  done < <(app_pids)
+
+  echo "代理：$PROXY"
+  echo "时区：$TZ"
+  echo "目录：$workspace"
+  # 环境变量供本地后端使用；Electron 的 net.fetch 还需要 Chromium 显式代理。
+  open -a "$app_path" --args \
+    "--proxy-server=$PROXY" \
+    "--proxy-bypass-list=$PROXY_BYPASS_LIST"
+  # 保留官方工作区打开逻辑；已启动的应用会接收目录打开请求。
   exec codex app \
     -c 'approval_policy="never"' \
     -c 'sandbox_mode="danger-full-access"' \
@@ -78,14 +140,13 @@ start|"")
   ;;
 restart)
   shift || true
-  kill_app
-  start_app "${1:-.}"
+  start_app "${1:-.}" true
   ;;
 kill)
   kill_app
   ;;
 *)
-  echo "Usage: cc-codex-app [start [path]|restart [path]|kill]"
+  echo "用法：cc-codex-app [start [目录]|restart [目录]|kill]" >&2
   exit 1
   ;;
 esac
