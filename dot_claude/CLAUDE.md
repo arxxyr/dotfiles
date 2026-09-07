@@ -488,4 +488,17 @@ cd "$(chezmoi source-path)" && git add <源文件> && git commit   # 提交源�
 
 ---
 
+## 12. Python 工具链（默认使用 uv）
+
+- **Python 默认使用 `uv`** 管理解释器、虚拟环境、依赖和命令运行。用户明确指定其他工具，或现有项目有必须遵守的工具链约束时按其要求执行，不擅自迁移已有项目。
+- 新 Python 项目以 `pyproject.toml` 声明依赖、`uv.lock` 锁定解析结果，两者一并提交，不手改锁文件。添加/移除依赖用 `uv add` / `uv remove`，开发依赖用 `uv add --dev`，同步项目环境用 `uv sync`；不要用临时安装代替依赖声明。
+- 项目内运行脚本、测试和开发工具用 `uv run`，例如 `uv run python scripts/check.py`、`uv run pytest`、`uv run ruff check .`。默认不直接调用裸 `python` / `pip` / `pytest`，也不要求手动激活虚拟环境。
+- CI 和按已提交版本复现环境时用 `uv sync --locked`、`uv run --locked ...`，锁文件与项目声明不一致应报错，不能在验证时静默更新锁文件。
+- 临时使用独立 CLI 工具用 `uvx <工具>`（即 `uv tool run <工具>`）；依赖当前项目环境的工具仍用 `uv run`。
+- 独立单文件脚本需要第三方依赖时，用 `uv add --script script.py <依赖>` 写入 PEP 723 内联元数据，再用 `uv run script.py` 执行。非 Python 项目中的临时检查可用 `uv run --no-project python ...`，不为一次运行创建项目配置。
+- 兼容已有 `requirements.txt` 项目时，复用项目的隔离环境，缺失时用 `uv venv` 创建，再用 `uv pip install -r requirements.txt` 安装；是否迁移到 `pyproject.toml` / `uv.lock` 由项目范围决定。
+- 复用项目约定的 Python 版本与隔离环境；依赖不装入系统 Python，不使用 `sudo pip` 或 `uv pip install --system`。`uv` 缺失时按项目约定处理安装，不默默切回全局 `pip`。
+
+---
+
 > 此文件为个人偏好基线。新项目可按需裁剪/调整，但请先确认差异点。
