@@ -142,7 +142,7 @@ automatically. `sudo` strips env vars; for root use `cc-install` / `cc-pc` (expl
 | `cc-claude [kill]` | Launch Claude Code with proxy / kill all Claude processes |
 | `cc-codex [kill]` | Launch Codex CLI with proxy |
 | `cc-kimi [kill]` | Launch Kimi Code CLI (K3 + max thinking + auto permission, no proxy) |
-| `cc-codex-app [start [path]\|restart [path]\|kill]` | macOS / Windows: launch, restart, or quit the Codex desktop app with a proxy (including the newer ChatGPT name) |
+| `cc-codex-app [start [path]\|restart [path]\|kill]` | macOS / Windows / Linux: launch, restart, or quit the Codex desktop app with a proxy (including the newer ChatGPT name) |
 | `source cc-proxy [off]` | Set/unset proxy env + git proxy for current shell |
 | `cc-pc <cmd>` | Run command through proxychains with dynamically generated conf |
 | `cc-install <pkg>…` | Install packages via proxied apt / brew |
@@ -151,7 +151,7 @@ automatically. `sudo` strips env vars; for root use `cc-install` / `cc-pc` (expl
 
 ```bash
 cc-claude                    # Start Claude with proxy (host auto-detected)
-cc-codex-app start           # Start the app; Windows cold-restarts if its proxy differs
+cc-codex-app start           # Start the app; Windows / Linux cold-restart if its proxy differs
 cc-kimi                      # Start Kimi (K3 / max thinking / auto permission)
 cc-kimi -c                   # Args starting with - pass through: resume last session
 source cc-proxy              # Enable proxy env in current shell
@@ -163,10 +163,32 @@ cc-synctime                  # UTC+8 (default); cc-synctime -5 → New York
 ```
 
 `cc-codex-app` sets both backend proxy environment variables and Chromium's
-`--proxy-server`, while bypassing local addresses. On Windows, `start` reuses an
-existing main process only when its proxy matches; a missing, conflicting, different,
-or duplicate proxy setting triggers an automatic cold restart. On macOS, use `restart`
-to apply new proxy launch arguments to an already-running app.
+`--proxy-server`, while bypassing local addresses. On all three platforms the
+environment variables reach only the desktop app's own process tree: macOS via
+`open --env`, Windows via the `cc-codex-app.ps1` launcher, Linux by starting the
+.deb package's `/usr/lib/chatgpt/ChatGPT` directly under `setsid`. On Windows and
+Linux, `start` reuses an existing main process only when its proxy matches; a
+missing, conflicting, different, or duplicate proxy setting triggers an automatic
+cold restart. On macOS, use `restart` to apply new proxy launch arguments to an
+already-running app.
+
+The Linux desktop app ships as the `chatgpt` .deb package. The Linux Codex CLI has
+no `codex app` subcommand, so the script hands the workspace to the desktop process
+via its own `--open-project` argument; point `CODEX_APP_PATH` at the `ChatGPT`
+executable for a custom install location. Both X11 and Wayland sessions work: under
+Wayland the script adds `--ozone-platform-hint=auto` (native Wayland, falling back to
+XWayland), and `CODEX_OZONE_PLATFORM=auto|x11|wayland` forces a backend. Requests made
+by Node's own http client inside the Electron main process ignore both `--proxy-server`
+and the proxy environment variables, so `NODE_USE_ENV_PROXY=1` (Node 24+) routes them
+through the proxy as well; in testing no connection bypassed the proxy afterwards. The
+proxy port is probed before launch (a warning if unreachable), and the desktop process's
+output goes to `~/.local/state/cc-codex-app/app.log` (honours `XDG_STATE_HOME`).
+
+```bash
+cc-codex-app restart ~/repo/my-project          # Linux: cold restart and open a directory
+CODEX_OZONE_PLATFORM=x11 cc-codex-app restart    # Force XWayland under a Wayland session
+cc-codex-app kill
+```
 
 ## Cheat Sheet
 

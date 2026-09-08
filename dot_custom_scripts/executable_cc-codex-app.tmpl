@@ -164,4 +164,318 @@ kill)
   exit 1
   ;;
 esac
+{{ else if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Linux 桌面版随 chatgpt .deb 包发行：/usr/bin/chatgpt → /usr/lib/chatgpt/codex-launcher → /usr/lib/chatgpt/ChatGPT（Electron）。
+# 与 macOS 版的差异：Linux 的 Codex CLI 没有 `codex app` 子命令，工作目录只能经桌面进程自己的
+# --open-project 参数传入（裸目录参数会被主进程丢弃）；启动走 setsid 直接 exec 二进制，
+# 代理与时区只随这次 exec 进入桌面进程树，不写入用户会话。
+# 默认代理主机统一走 cc-proxy-host（WSL NAT 下 127.0.0.1 是虚拟机自己）；CODEX_PROXY 可覆盖
+PROXY="${CODEX_PROXY:-http://$("$HOME/.custom_scripts/cc-proxy-host"):{{ .proxy.port }}}"
+TZ_VALUE="${CODEX_TZ:-America/New_York}"
+PROXY_BYPASS_LIST="localhost;127.0.0.1;[::1];*.local"
+# 桌面主二进制的固定候选位置（.deb 与常见 /opt 布局）；CODEX_APP_PATH 可直接指定可执行文件本体
+APP_CANDIDATES=(
+  /usr/lib/chatgpt/ChatGPT
+  /opt/chatgpt/ChatGPT
+  /opt/ChatGPT/ChatGPT
+  /usr/lib/codex/Codex
+  /opt/Codex/Codex
+)
+# 桌面进程的 stdout/stderr 落到这里；窗口起不来先看它
+LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/cc-codex-app/app.log"
+
+set_codex_env() {
+  export HTTP_PROXY="$PROXY"
+  export HTTPS_PROXY="$PROXY"
+  export ALL_PROXY="$PROXY"
+  export NO_PROXY="localhost,127.0.0.1,::1,.local"
+  export http_proxy="$HTTP_PROXY"
+  export https_proxy="$HTTPS_PROXY"
+  export all_proxy="$ALL_PROXY"
+  export no_proxy="$NO_PROXY"
+  export TZ="$TZ_VALUE"
+  # Electron 主进程里 Node 自带的 http/https 客户端既不认 --proxy-server 也不认代理环境变量；
+  # Node 24 起这个开关让它们也读 HTTP(S)_PROXY / NO_PROXY（实测主进程绕过代理的直连随之消失）
+  export NODE_USE_ENV_PROXY=1
+}
+
+resolve_app_path() {
+  local name launcher dir candidate
+  if [[ -n "${CODEX_APP_PATH:-}" ]]; then
+    readlink -f -- "$CODEX_APP_PATH"
+    return 0
+  fi
+  # .deb 把启动脚本链进 PATH（chatgpt → codex-launcher），主二进制就在脚本旁边
+  for name in chatgpt codex-launcher; do
+    launcher="$(command -v "$name" 2>/dev/null || true)"
+    [[ -n "$launcher" ]] || continue
+    dir="$(dirname -- "$(readlink -f -- "$launcher")")"
+    for candidate in "$dir/ChatGPT" "$dir/Codex"; do
+      if [[ -f "$candidate" && -x "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    done
+  done
+  for candidate in "${APP_CANDIDATES[@]}"; do
+    if [[ -f "$candidate" && -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Chromium 起来后会用 setproctitle 把整条命令行改写成一个空格连接的标题串，/proc/<pid>/cmdline
+# 只剩一个字段（子进程亦然）；只有 exec 后的最初几毫秒才是 NUL 分隔的原始 argv。两种形态都拆成
+# 一行一个参数——代理相关参数本身不含空格；带空格的工作目录会被拆碎，但这里用不到它。
+process_args() {
+  local raw
+  local -a tokens=()
+  raw="$(tr '\0' '\n' < "/proc/$1/cmdline" 2>/dev/null || true)"
+  [[ -n "$raw" ]] || return 0
+  if [[ "$raw" == *$'\n'* ]]; then
+    printf '%s\n' "$raw"
+  else
+    IFS=' ' read -r -a tokens <<< "$raw"
+    printf '%s\n' "${tokens[@]}"
+  fi
+  return 0
+}
+
+# Electron 的 renderer / gpu / utility / zygote 子进程与主进程同名，但命令行都带 --type=
+is_main_process() {
+  local arg
+  while IFS= read -r arg; do
+    [[ "$arg" != --type=* ]] || return 1
+  done < <(process_args "$1")
+  return 0
+}
+
+# 列出桌面主进程 PID：按 /proc/<pid>/exe 核对二进制路径，避免误伤同名的其他程序或 CLI
+app_pids() {
+  local pid exe
+  [[ -n "$APP_PATH" ]] || return 0
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] || continue
+    exe="$(readlink -- "/proc/$pid/exe" 2>/dev/null || true)"
+    # 包升级后旧进程的 exe 会带 (deleted) 后缀
+    exe="${exe% (deleted)}"
+    [[ "$exe" == "$APP_PATH" ]] || continue
+    if is_main_process "$pid"; then
+      printf '%s\n' "$pid"
+    fi
+  done < <(pgrep -x "$(basename -- "$APP_PATH")" 2>/dev/null || true)
+  return 0
+}
+
+# 与 Windows 版一致：精确核对现有主进程的代理参数——缺失、重复、冲突、不同都视为不一致，
+# 由调用方冷重启收敛为唯一配置（Electron 单例不会把新参数写回已有主进程）。
+proxy_matches() {
+  local arg proxy_count=0 bypass_count=0
+  while IFS= read -r arg; do
+    case "$arg" in
+    "--proxy-server=$PROXY") proxy_count=$((proxy_count + 1)) ;;
+    --proxy-server|--proxy-server=*) return 1 ;;
+    "--proxy-bypass-list=$PROXY_BYPASS_LIST") bypass_count=$((bypass_count + 1)) ;;
+    --proxy-bypass-list|--proxy-bypass-list=*) return 1 ;;
+    --no-proxy-server|--proxy-auto-detect|--proxy-pac-url|--proxy-pac-url=*) return 1 ;;
+    esac
+  done < <(process_args "$1")
+  [[ "$proxy_count" -eq 1 && "$bypass_count" -eq 1 ]]
+}
+
+wait_for_app_exit() {
+  local attempt
+  for ((attempt = 0; attempt < 40; attempt++)); do
+    [[ -n "$(app_pids)" ]] || return 0
+    sleep 0.25
+  done
+  return 1
+}
+
+signal_app() {
+  local signal="$1" pid
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] || continue
+    kill "-$signal" "$pid" 2>/dev/null || true
+  done < <(app_pids)
+  return 0
+}
+
+kill_app() {
+  if [[ -z "$(app_pids)" ]]; then
+    echo "[完成] 没有正在运行的 Codex 桌面进程"
+    return 0
+  fi
+
+  echo "正在退出 Codex 桌面应用"
+  # Chromium 主进程收到 SIGTERM 会走正常退出流程并带走子进程；超时再 SIGKILL 兜底
+  signal_app TERM
+  if ! wait_for_app_exit; then
+    signal_app KILL
+    if ! wait_for_app_exit; then
+      echo "[错误] 桌面应用退出超时，请关闭后重试" >&2
+      return 1
+    fi
+  fi
+  echo "[完成] 桌面应用已退出"
+}
+
+# X11 与 Wayland 会话都支持。Wayland 下让 Chromium 自动选 ozone 后端（原生 Wayland，缺 Wayland
+# 时回退 XWayland）；X11 下不加参数，与点桌面图标的行为一致。CODEX_OZONE_PLATFORM=auto|x11|wayland 可强制。
+ozone_arg() {
+  local platform="${CODEX_OZONE_PLATFORM:-}"
+  if [[ -z "$platform" ]]; then
+    if [[ "${XDG_SESSION_TYPE:-}" == wayland ]] || [[ -n "${WAYLAND_DISPLAY:-}" && "${XDG_SESSION_TYPE:-}" != x11 ]]; then
+      platform=auto
+    fi
+  fi
+  case "$platform" in
+  "") ;;
+  auto) printf '%s\n' "--ozone-platform-hint=auto" ;;
+  x11|wayland) printf '%s\n' "--ozone-platform=$platform" ;;
+  *)
+    echo "[错误] CODEX_OZONE_PLATFORM 只接受 auto|x11|wayland，当前：$platform" >&2
+    return 1
+    ;;
+  esac
+  return 0
+}
+
+# 代理不可达时桌面窗口会一直停在启动图标，提前提示；只在 URL 形如 scheme://host:port 时探测
+warn_if_proxy_unreachable() {
+  local hostport host port
+  hostport="${PROXY#*://}"
+  hostport="${hostport%%/*}"
+  hostport="${hostport##*@}"
+  host="${hostport%:*}"
+  port="${hostport##*:}"
+  host="${host#[}"
+  host="${host%]}"
+  [[ "$host" =~ ^[A-Za-z0-9.:_-]+$ && "$port" =~ ^[0-9]+$ ]] || return 0
+  if ! timeout 2 bash -c "exec 3<>/dev/tcp/$host/$port" 2>/dev/null; then
+    echo "[警告] 代理 $PROXY 无法连接，桌面窗口可能停在启动图标；确认代理已启动，或用 CODEX_PROXY 覆盖" >&2
+  fi
+  return 0
+}
+
+# 主进程建立后再观察 2 秒：早夭（沙箱、缺库、显示后端不匹配）时把日志尾部回显出来
+wait_for_app_start() {
+  local attempt pid=""
+  for ((attempt = 0; attempt < 40; attempt++)); do
+    pid="$(app_pids)"
+    pid="${pid%%$'\n'*}"
+    [[ -z "$pid" ]] || break
+    sleep 0.25
+  done
+  if [[ -n "$pid" ]]; then
+    sleep 2
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "[完成] 桌面应用已启动（PID $pid），日志：$LOG_FILE"
+      return 0
+    fi
+  fi
+  echo "[错误] 桌面应用未能启动，日志尾部（$LOG_FILE）：" >&2
+  tail -n 20 -- "$LOG_FILE" >&2 2>/dev/null || true
+  return 1
+}
+
+start_app() {
+  local workspace="${1:-.}" restart="${2:-false}" pid existing ozone
+  local -a launch_args=()
+  if [[ ! -d "$workspace" ]]; then
+    echo "[错误] 工作目录不存在：$workspace" >&2
+    return 1
+  fi
+  workspace="$(cd -- "$workspace" && pwd -P)"
+  if [[ -z "$APP_PATH" ]]; then
+    echo "[错误] 未找到 Codex 桌面应用：请安装 chatgpt .deb（https://developers.openai.com/codex/app），或用 CODEX_APP_PATH 指定 ChatGPT 可执行文件" >&2
+    return 1
+  fi
+  if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+    echo "[错误] 当前不是图形会话（DISPLAY 与 WAYLAND_DISPLAY 都为空），桌面应用无法启动" >&2
+    return 1
+  fi
+  ozone="$(ozone_arg)" || return 1
+  if [[ -n "$ozone" ]]; then
+    launch_args+=("$ozone")
+  fi
+  launch_args+=(
+    "--proxy-server=$PROXY"
+    "--proxy-bypass-list=$PROXY_BYPASS_LIST"
+    "--open-project=$workspace"
+  )
+
+  set_codex_env
+  warn_if_proxy_unreachable
+
+  # 校验目录和启动依赖后再退出，避免输错目录时打断现有工作。
+  if [[ "$restart" == true ]]; then
+    kill_app
+  else
+    # Electron 单例不会把新启动参数写回已有主进程；代理不一致时必须冷重启（与 Windows 版一致）
+    while IFS= read -r pid; do
+      [[ -n "$pid" ]] || continue
+      if ! proxy_matches "$pid"; then
+        echo "检测到正在运行的桌面应用未使用当前代理，正在冷重启：proxy=$PROXY"
+        kill_app
+        break
+      fi
+    done < <(app_pids)
+  fi
+
+  existing="$(app_pids)"
+  existing="${existing%%$'\n'*}"
+  echo "代理：$PROXY"
+  if [[ -n "$existing" ]]; then
+    echo "时区：沿用现有桌面进程（如需更改请执行 cc-codex-app restart）"
+  else
+    echo "时区：$TZ"
+  fi
+  echo "目录：$workspace"
+  if [[ -n "$ozone" ]]; then
+    echo "显示后端：$ozone"
+  fi
+
+  mkdir -p -- "$(dirname -- "$LOG_FILE")"
+  if [[ -z "$existing" ]]; then
+    : > "$LOG_FILE"
+  fi
+  # setsid 让桌面进程脱离当前终端（关终端不带走应用）；代理与时区只随这次 exec 进入桌面进程树。
+  # 已有实例在运行时，新进程会把 --open-project 转交给它然后自行退出（Electron 单例）。
+  setsid -f "$APP_PATH" "${launch_args[@]}" >>"$LOG_FILE" 2>&1 < /dev/null
+  if [[ -n "$existing" ]]; then
+    echo "[完成] 目录已交给正在运行的桌面应用（PID $existing）"
+    return 0
+  fi
+  wait_for_app_start
+}
+
+if [[ -n "${CODEX_APP_PATH:-}" && ( ! -f "$CODEX_APP_PATH" || ! -x "$CODEX_APP_PATH" ) ]]; then
+  echo "[错误] CODEX_APP_PATH 不是可执行文件：$CODEX_APP_PATH" >&2
+  exit 1
+fi
+APP_PATH="$(resolve_app_path || true)"
+
+case "${1:-start}" in
+start|"")
+  shift || true
+  start_app "${1:-.}"
+  ;;
+restart)
+  shift || true
+  start_app "${1:-.}" true
+  ;;
+kill)
+  kill_app
+  ;;
+*)
+  echo "用法：cc-codex-app [start [目录]|restart [目录]|kill]" >&2
+  exit 1
+  ;;
+esac
 {{ end -}}

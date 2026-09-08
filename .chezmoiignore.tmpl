@@ -28,9 +28,8 @@ AppData
 .custom_scripts/cc-synctime.ps1
 .custom_scripts/cc-proxy.ps1
 {{- if eq .chezmoi.os "linux" }}
-# Linux 上忽略 macOS 专属脚本
+# Linux 上忽略 macOS 专属脚本（cc-codex-app 三端都有实现，不在此列）
 .custom_scripts/cc-nosleep
-.custom_scripts/cc-codex-app
 {{- end }}
 {{- end }}
 # 所有平台忽略 PowerShell 版 statusline（已统一用 bash）

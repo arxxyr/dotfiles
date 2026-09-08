@@ -136,7 +136,7 @@ brew 安装的程序有效。
 | `cc-claude [kill]` | 带代理启动 Claude Code / 杀掉全部 Claude 进程 |
 | `cc-codex [kill]` | 带代理启动 Codex CLI |
 | `cc-kimi [kill]` | 启动 Kimi Code CLI（K3 + max 思考 + auto 权限，直连不走代理） |
-| `cc-codex-app [start [目录]\|restart [目录]\|kill]` | macOS / Windows：带代理启动、重启或退出 Codex 桌面应用（兼容新版 ChatGPT 名称） |
+| `cc-codex-app [start [目录]\|restart [目录]\|kill]` | macOS / Windows / Linux：带代理启动、重启或退出 Codex 桌面应用（兼容新版 ChatGPT 名称） |
 | `source cc-proxy [off]` | 当前 shell 设置/清除代理 env + git 代理 |
 | `cc-pc <cmd>` | 经动态生成配置的 proxychains 执行命令 |
 | `cc-install <包>…` | 走代理的 apt / brew 安装 |
@@ -145,7 +145,7 @@ brew 安装的程序有效。
 
 ```bash
 cc-claude                    # 带代理启动 Claude（宿主机自动探测）
-cc-codex-app start           # 启动桌面应用；Windows 代理不一致时自动冷重启
+cc-codex-app start           # 启动桌面应用；Windows / Linux 代理不一致时自动冷重启
 cc-kimi                      # 启动 Kimi（K3 / max 思考 / auto 权限）
 cc-kimi -c                   # 以 - 开头的参数透传给 kimi：续上次会话
 source cc-proxy              # 当前 shell 启用代理 env
@@ -158,11 +158,27 @@ cc-synctime                  # UTC+8（默认）；cc-synctime -5 → 纽约
 
 `cc-codex-app` 同时设置后端代理环境变量和 Chromium 的 `--proxy-server`，
 本机地址绕过代理。仅设置 `HTTP_PROXY` / `HTTPS_PROXY` 不能覆盖桌面全部请求，
-可能导致窗口一直停在启动图标。macOS 继续通过 `launchctl` 传递环境变量；
-Windows 使用 `cc-codex-app.ps1`，代理环境仅作用于启动的桌面进程及其子进程。
-两端都可通过 `CODEX_PROXY`、`CODEX_TZ` 覆盖默认代理和时区。Windows 的 `start`
+可能导致窗口一直停在启动图标。三端的环境变量都只注入桌面进程自己的进程树：macOS 经
+`open --env`（不再写 launchd 用户域）；Windows 使用 `cc-codex-app.ps1`，代理环境仅作用于
+启动的桌面进程及其子进程；Linux 用 `setsid` 直接拉起 .deb 包里的 `/usr/lib/chatgpt/ChatGPT`。
+三端都可通过 `CODEX_PROXY`、`CODEX_TZ` 覆盖默认代理和时区。Windows 与 Linux 的 `start`
 会精确核对已有主进程的代理参数：一致时复用，缺失、冲突、不同或重复时自动冷重启；macOS
 若应用已在运行，仍需执行 `restart` 才会应用新的代理启动参数。
+
+Linux 桌面版随 `chatgpt` .deb 包发行（apt 源由包的 postinst 自动写入）。Linux 的 Codex CLI 没有
+`codex app` 子命令，脚本改用桌面进程自己的 `--open-project` 参数接收工作目录；自定义安装位置用
+`CODEX_APP_PATH` 指向 `ChatGPT` 可执行文件本体。X11 与 Wayland 会话都支持：Wayland 下默认加
+`--ozone-platform-hint=auto`（原生 Wayland，缺 Wayland 时回退 XWayland），
+`CODEX_OZONE_PLATFORM=auto|x11|wayland` 可强制。Electron 主进程里 Node 自带 http 客户端发出的请求
+既不认 `--proxy-server` 也不认代理环境变量，另靠 `NODE_USE_ENV_PROXY=1`（Node 24+）收进代理，
+实测不再有绕过代理的直连。启动前会探测代理端口，连不上先给警告；桌面进程的输出写到
+`~/.local/state/cc-codex-app/app.log`（随 `XDG_STATE_HOME`），窗口起不来先看它。
+
+```bash
+cc-codex-app restart ~/repo/my-project          # Linux：冷重启并打开指定目录
+CODEX_OZONE_PLATFORM=x11 cc-codex-app restart    # Wayland 下强制走 XWayland
+cc-codex-app kill
+```
 
 Windows 会查询协议注册、Microsoft Store 包清单及常规安装目录；自定义安装位置可通过
 `-AppPath` 或 `CODEX_APP_PATH` 指定桌面可执行文件。支持 Windows PowerShell 5.1 / PowerShell 7。
