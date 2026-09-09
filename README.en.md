@@ -72,14 +72,16 @@ their contents. Preserve machine-specific edits in source first. To restore a re
 its retirement entry before importing, reviewing and applying the desired source files.
 
 ```bash
-chezmoi diff --recursive ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md
-chezmoi apply --exclude scripts ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md
+chezmoi diff --recursive --parent-dirs --exclude scripts ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md ~/.agents/AGENTS.md ~/.codex/AGENTS.md
+chezmoi apply --parent-dirs --exclude scripts ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md ~/.agents/AGENTS.md ~/.codex/AGENTS.md
 uv run --no-project tests/test_agent_skills.py
 uv run tests/validate_skills.py
 ```
 
 Run tests from the source repository with Python 3.11+ and chezmoi. Migration tests use temporary
 directories and check ownership, links, lock preservation/idempotency, exact removal and protected skills.
+They also restore the complete real skill source into an empty target and compare every deployed file.
+`--parent-dirs` handles missing parent directories; both `AGENTS.md` targets restore the shared instruction links.
 The skill validator reuses the bundled `skill-creator` validator; uv provides PyYAML from inline script metadata.
 `team-swe` uses Claude's `disable-model-invocation` plus Codex's `agents/openai.yaml` explicit-only policy;
 the Claude field is a known extension outside the stock Codex quick validator's whitelist.

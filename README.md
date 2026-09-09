@@ -69,14 +69,15 @@ chezmoi apply ~/.zshrc            # 定向应用；随后手动提交，需要�
 不要直接解包旧目录到发现路径：恢复时先移除相应退役项，再将所需内容纳管、预览和应用。
 
 ```bash
-chezmoi diff --recursive ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md
-chezmoi apply --exclude scripts ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md
+chezmoi diff --recursive --parent-dirs --exclude scripts ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md ~/.agents/AGENTS.md ~/.codex/AGENTS.md
+chezmoi apply --parent-dirs --exclude scripts ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md ~/.agents/AGENTS.md ~/.codex/AGENTS.md
 uv run --no-project tests/test_agent_skills.py
 uv run tests/validate_skills.py
 ```
 
 测试从源仓库运行，要求 Python 3.11+ 和 chezmoi；迁移测试使用临时目录，不修改真实配置。
-包含源/链接一致性、锁文件保留与幂等性、精确清理和系统/未知技能保留检查。
+包含源/链接一致性、锁文件保留与幂等性、精确清理和系统/未知技能保留检查，以及真实完整源向空目标恢复的逐文件核验。
+`--parent-dirs` 支持父目录尚不存在的恢复；两个 `AGENTS.md` 目标补齐全局指令共享链接。
 技能验证脚本通过内置 `skill-creator` 验证入口，PyYAML 依赖由脚本内联声明、uv 隔离运行。
 `team-swe` 同时使用 Claude 的 `disable-model-invocation` 和 Codex 的
 `agents/openai.yaml` 显式调用策略；前者是原版 Codex 快速验证器白名单之外的已知扩展字段。

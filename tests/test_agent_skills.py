@@ -125,6 +125,118 @@ class SkillLockTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "隔离目录迁移测试需要无需提权创建符号链接")
 class MigrationTests(unittest.TestCase):
+    def test_full_source_restores_to_empty_destination(self):
+        with tempfile.TemporaryDirectory(prefix="chezmoi-skills-restore-") as directory:
+            temporary = Path(directory)
+            destination = temporary / "home"
+            destination.mkdir()
+            config = temporary / "config.toml"
+            config.write_text("", encoding="utf-8")
+            command = [
+                "chezmoi",
+                "--source",
+                str(REPO),
+                "--destination",
+                str(destination),
+                "--config",
+                str(config),
+                "--persistent-state",
+                str(temporary / "state.boltdb"),
+                "--cache",
+                str(temporary / "cache"),
+                "--force",
+                "--use-builtin-diff",
+            ]
+            targets = [
+                str(destination / relative)
+                for relative in (
+                    ".agents/skills",
+                    ".claude/skills",
+                    ".codex/skills",
+                    ".openclaw/skills",
+                    ".agents/.skill-lock.json",
+                    ".claude/CLAUDE.md",
+                    ".agents/AGENTS.md",
+                    ".codex/AGENTS.md",
+                )
+            ]
+            preview = command + [
+                "diff",
+                "--recursive",
+                "--parent-dirs",
+                "--exclude",
+                "scripts",
+                *targets,
+            ]
+            subprocess.run(preview, check=True, capture_output=True, text=True)
+            self.assertEqual(list(destination.iterdir()), [])
+            apply_command = command + [
+                "apply",
+                "--parent-dirs",
+                "--exclude",
+                "scripts",
+                *targets,
+            ]
+            subprocess.run(apply_command, check=True, capture_output=True, text=True)
+
+            expected_paths = set()
+            source_skills = REPO / "dot_agents/skills"
+            # 用 chezmoi 的路径映射处理 literal_ 等源属性，再逐字节核对完整资源。
+            source_files = sorted(
+                path for path in source_skills.rglob("*") if path.is_file()
+            )
+            mapped = subprocess.run(
+                command + ["target-path", *(str(path) for path in source_files)],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+            self.assertEqual(len(mapped), len(source_files))
+            for source_file, target_path in zip(source_files, mapped, strict=True):
+                target_file = Path(target_path)
+                relative = target_file.relative_to(destination)
+                self.assertEqual(target_file.read_bytes(), source_file.read_bytes())
+                expected_paths.add(relative.as_posix())
+            for name in MANAGED:
+                for client in CLIENT_SOURCES:
+                    relative = f".{client}/skills/{name}"
+                    target_link = destination / relative
+                    self.assertTrue(target_link.is_symlink())
+                    self.assertEqual(
+                        target_link.readlink().as_posix(),
+                        f"../../.agents/skills/{name}",
+                    )
+                    self.assertEqual(
+                        target_link.resolve(), destination / ".agents/skills" / name
+                    )
+                    expected_paths.add(relative)
+            instructions = destination / ".claude/CLAUDE.md"
+            self.assertEqual(
+                instructions.read_bytes(), (REPO / "dot_claude/CLAUDE.md").read_bytes()
+            )
+            expected_paths.add(".claude/CLAUDE.md")
+            for client in ("agents", "codex"):
+                relative = f".{client}/AGENTS.md"
+                link = destination / relative
+                self.assertTrue(link.is_symlink())
+                self.assertEqual(link.resolve(), instructions)
+                expected_paths.add(relative)
+            lock_relative = ".agents/.skill-lock.json"
+            self.assertEqual(
+                json.loads((destination / lock_relative).read_text(encoding="utf-8")),
+                {"version": 3, "skills": {}},
+            )
+            expected_paths.add(lock_relative)
+            actual_paths = {
+                path.relative_to(destination).as_posix()
+                for path in destination.rglob("*")
+                if path.is_file() or path.is_symlink()
+            }
+            self.assertEqual(actual_paths, expected_paths)
+            subprocess.run(apply_command, check=True, capture_output=True, text=True)
+            result = subprocess.run(preview, check=True, capture_output=True, text=True)
+            self.assertEqual(result.stdout, "")
+
     def test_apply_removes_only_retired_skills(self):
         with tempfile.TemporaryDirectory(prefix="chezmoi-skills-test-") as directory:
             temporary = Path(directory)
