@@ -1,0 +1,12 @@
+# 2026-09 技能精简迁移。精确目录会连同其内容移除；应用前先备份。
+# 不用 exact_ 管理技能根目录，避免删除系统技能或后续自行安装的技能。
+{{ range .agent_skills.retired -}}
+.agents/skills/{{ . }}
+.claude/skills/{{ . }}
+.codex/skills/{{ . }}
+.openclaw/skills/{{ . }}
+{{ end -}}
+{{ if eq .chezmoi.os "linux" -}}
+# Linux 上清理旧小写入口；大小写不敏感系统上不能删除这个别名。
+.agents/skills/south-asia-translator/skill.md
+{{ end -}}

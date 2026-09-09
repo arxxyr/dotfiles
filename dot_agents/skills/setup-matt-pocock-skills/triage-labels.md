@@ -1,15 +1,13 @@
-# Triage Labels
+# 分诊标签映射参考
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+只有项目使用分诊工作流时才需要本表。先读取系统中的真实标签，再将状态映射到实际名称；以下同名值仅为无既有约定时的候选。
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
-| `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
+| 状态角色 | 项目标签候选 | 含义 |
+|---|---|---|
+| `needs-triage` | `needs-triage` | 等待维护者评估 |
+| `needs-info` | `needs-info` | 等待补充信息 |
+| `ready-for-agent` | `ready-for-agent` | 目标与验收完整，可由 agent 实现 |
+| `ready-for-human` | `ready-for-human` | 需要人工实施或决策 |
+| `wontfix` | `wontfix` | 决定不处理 |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
-
-Edit the right-hand column to match whatever vocabulary you actually use.
+已有等价标签直接映射，不重复创建。配置映射不等于已创建远程标签；缺失标签的创建、工单标签修改以及通知分别按任务授权执行。本地工单可将这些值映射到 `Status:` 字段。

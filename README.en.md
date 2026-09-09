@@ -19,10 +19,71 @@ chezmoi init --apply git@github.com:arxxyr/dotfiles.git
 ### Daily Usage
 
 ```bash
-chezmoi add ~/.zshrc              # Config changed? Auto commit & push
+chezmoi source-path ~/.zshrc      # 定位并编辑源文件
 chezmoi add ~/.config/xxx/conf    # Add new config
-chezmoi diff                      # See what changed
+chezmoi diff ~/.zshrc
+chezmoi apply ~/.zshrc
 ```
+
+Automatic commits and pushes are disabled. Review, apply only relevant targets, then commit manually.
+
+## Agent Instructions and Skills
+
+`dot_claude/CLAUDE.md` is the single source of global preferences, shared with Codex and generic
+`AGENTS.md` through symlinks. Detailed engineering rules are loaded on demand instead of included globally.
+
+All 18 personal skills have complete source directories under `dot_agents/skills/`, deployed to
+`~/.agents/skills/` with Claude/Codex/OpenClaw links to the same content:
+
+| Purpose | Skills |
+|---|---|
+| Design and planning | `design-review` (conditional domain-document workflow), `planning` (PRD / issue slicing) |
+| Issue workflow | `triage`, `setup-matt-pocock-skills` (missing tracker integration only) |
+| Engineering preferences | `cpp-engineering`, `rust-engineering`, `release-engineering` |
+| Specialized engineering | `rust-ffi`, `ros2-cpp`, `bevy-ecs` |
+| Configuration | `dotfiles-maintenance`, `proxychains-gateway` |
+| Supporting workflows | `find-skills` (explicit discovery/install requests), `handoff`, `team-swe` (explicit invocation only) |
+| Specialized tools | `archify`, `south-asia-translator`, `a-share-trend-entry` |
+
+`planning` produces drafts by default; publishing requires task authorization. Ordinary diagnosis,
+testing and local planning do not initialize tracker integration. System and plugin skills, including
+the bundled `skill-creator`, remain owned by their respective components.
+
+### Migration and Recovery
+
+- `grill-me` / `grill-with-docs` become `design-review`; `to-prd` / `to-issues` become `planning`.
+- Personal copies of `skill-creator`, `write-a-skill`, `diagnose`, `tdd`, `prototype`,
+  `improve-codebase-architecture`, `zoom-out` and `caveman` are retired.
+- Retained `handoff`, `triage` and `find-skills` now have real source files. Original installer provenance
+  remains in Git history. `archify` is restored from the complete `tt-a1i/archify` skill directory at
+  the commit pinned in `.chezmoidata.toml`, including its license and third-party notices.
+  It requires Node.js 18+; run `node bin/archify.mjs doctor` from the skill directory.
+  Upstream development tests may require the full upstream repository. Update the chezmoi source, not deployed files.
+- `south-asia-translator` keeps its workflow, scripts and glossaries; its entry point is normalized to `SKILL.md`.
+- `agent_skills` in `.chezmoidata.toml` is the ownership/retirement list. `.chezmoiremove` targets only
+  exact retired personal directories and links; it does not use `exact_` on skill roots.
+- The skill-lock modifier removes installer records only for source-owned or retired names, preserving
+  unrelated local skills, preferences and unknown fields. Recovery uses source files and `chezmoi apply`,
+  not a reinstall of the old lock file.
+
+Before migrating another machine, archive the shared, Claude, Codex and OpenClaw skill directories, the old global
+instructions and lock file outside skill discovery paths. Retired directories are removed with all
+their contents. Preserve machine-specific edits in source first. To restore a retired skill, remove
+its retirement entry before importing, reviewing and applying the desired source files.
+
+```bash
+chezmoi diff --recursive ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md
+chezmoi apply --exclude scripts ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.openclaw/skills ~/.agents/.skill-lock.json ~/.claude/CLAUDE.md
+uv run --no-project tests/test_agent_skills.py
+uv run tests/validate_skills.py
+```
+
+Run tests from the source repository with Python 3.11+ and chezmoi. Migration tests use temporary
+directories and check ownership, links, lock preservation/idempotency, exact removal and protected skills.
+The skill validator reuses the bundled `skill-creator` validator; uv provides PyYAML from inline script metadata.
+`team-swe` uses Claude's `disable-model-invocation` plus Codex's `agents/openai.yaml` explicit-only policy;
+the Claude field is a known extension outside the stock Codex quick validator's whitelist.
+Start a new session to refresh discovery. Windows requires permission to create symlinks.
 
 ## Automated Setup (run_once)
 

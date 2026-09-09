@@ -27,3 +27,24 @@ service_tier = "default"
 doc_fallback_filenames = ["CLAUDE.md"]
 status_line = ["model-with-reasoning", "git-branch", "context-remaining", "run-state", "current-dir", "five-hour-limit", "weekly-limit", "context-window-size", "used-tokens", "fast-mode", "task-progress"]
 trusted_projects = ["repo/robot/robot-system", ".openclaw", "Documents/bp", "repo/docs/面试"]
+
+[agent_skills]
+# 源仓库完整保存这些技能；安装器锁文件不再宣称拥有它们。
+managed = [
+  "a-share-trend-entry", "archify", "bevy-ecs", "cpp-engineering",
+  "design-review", "dotfiles-maintenance", "find-skills", "handoff",
+  "planning", "proxychains-gateway", "release-engineering", "ros2-cpp",
+  "rust-engineering", "rust-ffi", "setup-matt-pocock-skills",
+  "south-asia-translator", "team-swe", "triage",
+]
+# 仅移除个人安装目录中的精确名称，不匹配 .system 或插件缓存。
+retired = [
+  "caveman", "diagnose", "grill-me", "grill-with-docs",
+  "improve-codebase-architecture", "prototype", "skill-creator", "tdd",
+  "to-issues", "to-prd", "write-a-skill", "zoom-out",
+]
+
+[agent_skills.archify]
+source = "https://github.com/tt-a1i/archify"
+revision = "10722002bb8777ecb639d93c49586fae4adf3ae4"
+path = "archify"

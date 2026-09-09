@@ -1,51 +1,13 @@
-# Domain Docs
+# 已有领域文档的读取约定
 
-How the engineering skills should consume this repo's domain documentation when exploring the codebase.
+供 `design-review`、`planning` 等流程在需要领域背景时参考；没有这些文档也能直接开展评审或规划。
 
-## Before exploring, read these
+- 有 `CONTEXT-MAP.md` 时，按索引选取当前任务涉及的领域，读取对应 `CONTEXT.md`。
+- 没有索引但存在根目录 `CONTEXT.md` 时，读取相关术语与约束。
+- 读取涉及当前决策的 ADR；领域内有独立 ADR 目录时按实际路径查找。
+- 只记录已存在或本次明确授权创建的文档位置，不为满足模板创建空目录和占位文件。
+- 输出沿用词汇表中的概念名；新术语先核对是否为已有概念的别名。
+- 新方案与既有 ADR 冲突时，说明具体冲突和重议理由，不能静默覆盖旧决定。
+- `design-review` 中已经明确且在授权范围内的领域决定可更新对应文档；普通规划不自动扩展为文档体系建设。
 
-- **`CONTEXT.md`** at the repo root, or
-- **`CONTEXT-MAP.md`** at the repo root if it exists — it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
-- **`docs/adr/`** — read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
-
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
-
-## File structure
-
-Single-context repo (most repos):
-
-```
-/
-├── CONTEXT.md
-├── docs/adr/
-│   ├── 0001-event-sourced-orders.md
-│   └── 0002-postgres-for-write-model.md
-└── src/
-```
-
-Multi-context repo (presence of `CONTEXT-MAP.md` at the root):
-
-```
-/
-├── CONTEXT-MAP.md
-├── docs/adr/                          ← system-wide decisions
-└── src/
-    ├── ordering/
-    │   ├── CONTEXT.md
-    │   └── docs/adr/                  ← context-specific decisions
-    └── billing/
-        ├── CONTEXT.md
-        └── docs/adr/
-```
-
-## Use the glossary's vocabulary
-
-When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
-
-If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
-
-## Flag ADR conflicts
-
-If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
-
-> _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+配置中列出实际路径与适用模块即可，不需要复制整份词汇表或 ADR 内容。

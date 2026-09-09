@@ -1,19 +1,20 @@
-# Issue tracker: Local Markdown
+# 本地 Markdown 工单配置参考
 
-Issues and PRDs for this repo live as markdown files in `.scratch/`.
+优先采用项目现有目录与命名。没有约定且用户选择本地工单时，可采用以下结构：
 
-## Conventions
+```text
+.scratch/<需求名>/
+├── PRD.md
+└── issues/
+    ├── 01-<任务名>.md
+    └── 02-<任务名>.md
+```
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The PRD is `.scratch/<feature-slug>/PRD.md`
-- Implementation issues are `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`
-- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- PRD 与实施工单分开保存；新编号接续已有文件，不能覆盖同名工单。
+- 工单记录目标、验收条件、依赖和状态；沿用现有字段与语言。
+- 需要分诊时用 `Status:` 记录 [标签映射](triage-labels.md) 中对应状态。
+- 讨论按现有格式追加在工单末尾，保留原始内容。
+- “发布到本地工单”表示在约定目录创建或更新正式工单；仅要求草稿时不自动将它标为已发布。
+- 读取被引用工单时使用明确路径，并核对编号所属需求，避免不同目录的同号工单混淆。
 
-## When a skill says "publish to the issue tracker"
-
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
-
-## When a skill says "fetch the relevant ticket"
-
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+项目说明应记录：工单根目录、PRD 路径规则、编号与依赖表示法、状态字段；不要求远程账号或 CLI。

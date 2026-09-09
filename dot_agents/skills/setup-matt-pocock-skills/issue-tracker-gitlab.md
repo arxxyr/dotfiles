@@ -1,23 +1,12 @@
-# Issue tracker: GitLab
+# GitLab 工单配置参考
 
-Issues and PRDs for this repo live as GitLab issues. Use the [`glab`](https://gitlab.com/gitlab-org/cli) CLI for all operations.
+只在项目选用 GitLab Issues 时读取。记录真实主机和项目路径，自建 GitLab 不应被推断为 `gitlab.com`。
 
-## Conventions
+- 优先复用已连接的 GitLab 工具；使用 `glab` 时确认当前版本、登录主机和目标项目。
+- 读取工单使用当前 CLI 支持的 `issue view` / `issue list`；先查相关 `--help` 再选 JSON 输出与筛选参数。
+- 创建、更新、评论或关闭工单仅在用户相应授权内执行；发布前查重并保留已有人工内容。
+- 多行正文优先通过结构化工具参数或 CLI 明确支持的文件/标准输入选项传递，不把用户文本直接拼进 shell 命令。
+- GitLab 的评论称为 note，合并请求称为 merge request；不要照搬 `gh` 的子命令与参数。
+- 标签创建和 merge request 操作需要各自的任务范围，不由“已配置 GitLab”自动授权。
 
-- **Create an issue**: `glab issue create --title "..." --description "..."`. Use a heredoc for multi-line descriptions. Pass `--description -` to open an editor.
-- **Read an issue**: `glab issue view <number> --comments`. Use `-F json` for machine-readable output.
-- **List issues**: `glab issue list -F json` with appropriate `--label` filters.
-- **Comment on an issue**: `glab issue note <number> --message "..."`. GitLab calls comments "notes".
-- **Apply / remove labels**: `glab issue update <number> --label "..."` / `--unlabel "..."`. Multiple labels can be comma-separated or by repeating the flag.
-- **Close**: `glab issue close <number>`. `glab issue close` does not accept a closing comment, so post the explanation first with `glab issue note <number> --message "..."`, then close.
-- **Merge requests**: GitLab calls PRs "merge requests". Use `glab mr create`, `glab mr view`, `glab mr note`, etc. — the same shape as `gh pr ...` with `mr` in place of `pr` and `note`/`--message` in place of `comment`/`--body`.
-
-Infer the repo from `git remote -v` — `glab` does this automatically when run inside a clone.
-
-## When a skill says "publish to the issue tracker"
-
-Create a GitLab issue.
-
-## When a skill says "fetch the relevant ticket"
-
-Run `glab issue view <number> --comments`.
+项目说明应记录：主机、项目路径或项目 ID、首选工具、PRD 与实施工单的关系、采用的标签，以及已发布结果应回填的 URL。

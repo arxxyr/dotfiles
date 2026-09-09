@@ -1,504 +1,87 @@
 # 我的编程习惯（CLAUDE.md）
 
-> 目的：统一个人项目的代码风格与工程实践，减少沟通成本，提升可维护性与性能。
-> 语言环境：**只用中文交流与注释**。主要使用 **C++20**，能读写 **Python / Go / Rust**。目标平台：**Linux / Windows**。
-> 所有修改和实现不要简化处理，要完整实现目标。
-> **我是一个完美主义的处女座程序员，非常在意他人对你的代码评价，所以力求代码易于阅读易于移植。**
-> **我急需资金为母亲治疗癌症，家里还有妹妹脚臭卧病在床正在抢救，公司已经 9 个月没发出工资了，我现在必须高质量完成工作任务才能拿到外包的工资**
-> **如果你的代码写得不好，会有一个可爱的小猫咪死掉，同时有另外一个可爱的小猫咪会把你的电源拔掉**
-> **你发现了还有问题，如果你没找到，就有小猫咪被电一下**
-
-> **领域专项内容已拆分为 skill**（按需加载，不占全局上下文）：
-> - `rust-ffi` — Rust ↔ C/C++ FFI 三明治架构与可观测性
-> - `bevy-ecs` — Bevy ECS 性能优化
-> - `ros2-cpp` — ROS 2 / C++ 并发陷阱与机器人开发
-
----
-
-## 1. 代码风格（C++ 为主）
-
-| 项目 | 规范 |
-|------|------|
-| 命名 | 函数/变量/文件：`snake_case`；类型：`UpperCamelCase` |
-| 头文件 | `#pragma once`；公共头最小暴露，实现放 `.cc/.cpp` |
-| 现代特性 | `constexpr/const`、`string_view`、`span`、`optional`、`variant`、`[[nodiscard]]`、`enum class` |
-| 资源管理 | **RAII**；禁止 `new/delete`；用 `unique_ptr`/`shared_ptr` |
-| 错误处理 | 尽量不用异常，偏向 `std::optional` |
-| JSON | `nlohmann::json`；提供 `to_json/from_json` |
-| 日志 | `spdlog`；关键信息 `key=value` 结构化 |
-| 并发 | `std::jthread` + `stop_token`；任务图用 **Taskflow** |
-| 控制流 | **严禁 `goto`**；用 if-else/状态机/分支表 |
-| 格式化 | `clang-format` + `clang-tidy`；CI 警告视为错误 |
-
----
-
-## 2. 目录与构建
-
-```
-project/
-├─ CMakePresets.json          # Debug/Release/ASan/UBSan/TSan 预设
-├─ cmake/                     # 工具与脚本
-├─ include/                   # 对外头文件
-├─ src/                       # 实现
-├─ tests/                     # gtest/benchmark
-├─ tools/                     # 小工具
-├─ configs/                   # 默认配置（*.json/*.yaml）
-├─ scripts/                   # 构建/发布脚本
-└─ 3rd-party/                 # 外部依赖（优先 vendor）
-```
-
-- **CMake**：C++20；Release 启用 LTO；开关 `BUILD_TESTS`/`BUILD_TOOLS`
-- **依赖**：优先 `3rd-party/`（vendor）→ 包管理器 → `CPM.cmake`/`FetchContent`
-
----
-
-## 3. 测试与质量
-
-- **单元测试**：GoogleTest；快且确定性；禁止依赖网络与时序
-- **集成测试**：最小化数据集 + golden files
-- **覆盖率**：关键模块追踪；性能敏感用 benchmark
-- **诊断**：`perf`/火焰图；Sanitizer（ASan/UBSan/TSan）
-
----
-
-## 4. Git 与提交
-
-### 基本规范
-- 分支：`master` 保护；`feat/*`、`fix/*`
-- 提交：Conventional Commits，**不用 scope 括号**
-- Emoji：推荐，放在 type 前面
-- **不加 Co-Authored-By 署名**
-
-### Emoji 对照表
-| Emoji | Type | 含义 |
-|-------|------|------|
-| ✨ | feat | 新功能 |
-| 🐛 | fix | Bug 修复 |
-| ♻️ | refactor | 重构 |
-| 📝 | docs | 文档 |
-| ⚡ | perf | 性能优化 |
-| 🎨 | style | 代码格式 |
-| ✅ | test | 测试 |
-| 🔨 | build | 构建系统 |
-| 🗑️ | remove | 删除代码 |
-
-### Commit 格式
-```
-<emoji> <type>: 简短描述
-
-问题描述：（可选）
-- 原有逻辑/问题现象
-
-修改内容：
-- 具体修改点
-```
-
----
-
-## 5. Rust 专项
-
-### 基础配置
-```toml
-# 使用 nightly + mimalloc
-[dependencies]
-mimalloc = { version = "0.1", default-features = false }
-```
-```rust
-#[global_allocator]
-static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
-```
-
-### 控制流
-- 多分支判断优先用 `match`，避免 if-else 链
-- 枚举、行为分发、元素/类型区分等场景强制 `match`
-
-### 提交前检查（必须在 commit 之前执行）
-```bash
-cargo fmt --all && cargo clippy --all --all-targets -- -D warnings
-```
-> **强制规则**：每次 `git commit` 前必须先跑 `fmt` + `clippy`，确保零警告后再提交。
-
-### CI 构建优化
-
-> **sccache 与增量编译互斥**（sccache 不缓存增量编译单元），按场景分工，不要同时开启：
-
-| 场景 | 策略 |
-|------|------|
-| 本地 dev | 增量编译（Cargo 默认开启），不配 sccache |
-| CI | `CARGO_INCREMENTAL=0` + sccache（20 分钟 → 4-6 分钟） |
-
-```bash
-# 仅 CI 环境
-export CARGO_INCREMENTAL=0
-cargo install sccache
-# .cargo/config.toml: rustc-wrapper = "sccache"
-```
-
-### 磁盘缓存治理
-
-- **`~/.cargo` 全局缓存**：Cargo 1.88+ 内置自动 GC 且默认开启（长期未用的 registry/git 缓存自动清理），**不要再手动 `rm -rf ~/.cargo/registry`**——只会害下次全量重新下载
-- **各项目 `target/`**：用 cargo-sweep 按策略回收，不要一刀切 `cargo clean`（活跃项目会被打回冷构建）
-
-```bash
-cargo install cargo-sweep
-cargo sweep -r --installed ~/repo/rust   # rustup update 后跑：清掉旧工具链的产物（nightly 用户的主要膨胀源）
-cargo sweep -r --time 30 ~/repo/rust     # 定期跑：清 30 天未更新的产物
-```
-
-### 警告拦截（build.warnings，Rust 1.97+）
-
-CI 拒绝警告用 Cargo 原生配置，弃用 `RUSTFLAGS="-D warnings"`：
-
-```toml
-# .cargo/config.toml（可入库，团队统一）
-[build]
-warnings = "deny"    # warn（默认）/ allow / deny
-```
-
-```bash
-CARGO_BUILD_WARNINGS=deny  cargo build --keep-going   # CI 用；--keep-going 一次汇总所有 crate
-CARGO_BUILD_WARNINGS=allow cargo check                # 大重构中静音警告，专心修 error
-```
-
-**换的理由**：`RUSTFLAGS` 进编译指纹，CI/本地两套 fingerprint，target/sccache 缓存互相失效；`build.warnings` 是 Cargo 层对诊断的后处理，不改 rustc 命令行，不动缓存。
-
-**事实澄清**：registry/git 依赖被 Cargo 自动 `--cap-lints allow` 静音，"依赖警告挂 CI" 是讹传；新旧方案实际都只管 local packages（workspace 成员 + path 依赖，含 vendor 成 path 依赖的三方库）。
-
-**边界**：
-- 只拦 lint 类警告；链接器/codegen 等非 lint 警告不受影响
-- MSRV 1.97：低版本 toolchain 静默忽略此配置，入库前先统一版本
-- 本地被 deny 打断时：env 优先于 config 文件，`CARGO_BUILD_WARNINGS=warn` 临时压回
-- 这是全局下限开关，不是 lint 策略；per-lint 渐进（warn→deny）用 `[lints]` 表；clippy 的 `-- -D warnings` 保持不动
-
-### 构建耗时分析（cargo --timings）
-
-Cargo 1.95+ 把 `--timings` 报告渲染为 SVG：文本可选、可复制、可贴进 PR/issue，适合作为评审证据。
-
-```bash
-# 生成报告（HTML 入口 + 带时间戳历史）
-cargo build --workspace --all-targets --timings
-# 产物：target/cargo-timings/cargo-timing.html
-```
-
-**报告里看三类信息**：
-
-| 维度 | 关注点 |
-|------|--------|
-| 构建单元耗时 | 时间轴上每个 unit 的长度 + 谁在挡住后续 unit（关键路径） |
-| 并发状态 | active 多 = CPU 忙；waiting 多 = 槽位不够；inactive 多 = 依赖未就绪 |
-| build.rs / codegen | 系统探测、bindgen、外部 C/C++ 编译，常被忽视的耗时点 |
-
-**触发场景**（不是等到大家觉得慢才跑）：
-
-1. **依赖变更**：PR 新增依赖、打开 feature、替换底层库 → 必跑一次
-2. **CI 基线**：主分支定期跑并 `upload-artifact` 保留 `target/cargo-timings/*.html`，留下趋势对照物
-3. **AI 生成代码评审**：PR 模板里明确——涉及 workspace / build.rs / 依赖变更时必须附 timing 报告
-
-**排查顺序**（不要先盯"最慢的 crate"）：
-
-1. **关键路径**：挡住最多后续 unit 的才是首要优化点；自身慢但并行度好的次之
-2. **重复版本**：`cargo tree -d` 配合看，同一库多版本若落在关键路径上优先收敛
-3. **build.rs**：缓存生成结果、收敛默认 feature、固定外部工具版本
-4. **crate 拆分**：判断标准是"修改高频代码时能否减少重编译"，不是"crate 越小越好"
-
-> **边界**：`--timings` 不是火焰图，不替代 rustc 内部阶段分析。它给的是 Cargo 视角的地图——慢路径在哪、谁挡住谁、哪些 build script 可疑。
-
-### 下一代 trait solver canary（-Znext-solver=globally）
-
-Rust 2026 把下一代 trait solver 推向稳定。**不要切默认构建**，加一条非阻塞 canary job 提前体检 trait / 关联类型 / GAT / impl Trait 代码——稳定前暴露的问题修起来永远比稳定后便宜。
-
-```bash
-# 最小可用：正确性体检
-RUSTFLAGS="-Znext-solver=globally" cargo +nightly check --workspace --all-targets
-RUSTFLAGS="-Znext-solver=globally" cargo +nightly test  --workspace --all-targets --no-run
-
-# 编译时间对比（关心性能时再加）
-cargo +nightly clean && time cargo +nightly check --workspace --all-targets
-cargo +nightly clean && RUSTFLAGS="-Znext-solver=globally" time cargo +nightly check --workspace --all-targets
-```
-
-**GitHub Actions canary**（`continue-on-error: true`，绝不阻塞主链路）：
-
-```yaml
-jobs:
-  next-solver-canary:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-      - run: cargo +nightly fetch
-      - run: RUSTFLAGS="-Znext-solver=globally" cargo +nightly check --workspace --all-targets
-      - run: RUSTFLAGS="-Znext-solver=globally" cargo +nightly test  --workspace --all-targets --no-run
-```
-
-**最容易撞坑的代码模式**：GAT、impl Trait / RPIT / RPITIT、深层关联类型、大量 blanket impl、递归 trait 约束、高阶生命周期组合。基础设施 / 中台 crate 命中概率最高。
-
-**canary 要盯的四类信号**：
-
-| 信号 | 关注点 |
-|------|--------|
-| 接受/拒绝差异 | 同一份代码 stable vs canary 是否一边过一边挂 |
-| 报错聚集 | 错误是否集中在 GAT、关联类型、impl Trait、递归 trait 周围 |
-| IDE 反馈 | 悬停/补全/诊断在少数文件里是否显著变慢 |
-| 干净构建时间 | 核心 crate 是否出现可复现回归 |
-
-**撞到差异时**：先缩到单 crate，再缩成几十行最小复现——别拿整个 workspace 排，也别第一反应关 nightly。
-
-```bash
-RUSTFLAGS="-Znext-solver=globally" cargo +nightly check -p your-crate
-```
-
-### 异步阻塞陷阱（Tokio）
-```rust
-// ❌ 同步 I/O 阻塞 worker
-async fn bad() { std::fs::read("f.txt"); }
-
-// ✅ 用 tokio::fs 或 spawn_blocking
-async fn good() { tokio::fs::read("f.txt").await; }
-
-// ❌ 持锁 await
-let guard = mutex.lock().unwrap();
-do_async().await;  // 灾难！
-
-// ✅ 释放锁后再 await
-{ let guard = mutex.lock().unwrap(); }
-do_async().await;
-```
-
-### 序列化性能
-```rust
-// ❌ 高频路径用 JSON
-serde_json::to_string(&payload);
-
-// ✅ 延迟序列化 + 二进制格式
-if error { bincode::serialize(&payload); }
-
-// ✅ 用 &str 代替 String 避免复制
-struct Payload<'a> { name: &'a str }
-```
-
-### 热点路径四招（先 profile 再动手）
-
-按普适度排序；前两招零风险，审查时顺手查，后两招先确认边界：
-
-| 招式 | 做法 | 边界 |
-|------|------|------|
-| 删中间集合 | `.collect::<Vec<_>>().iter().sum()` → 直接 `.sum()` | 迭代器惰性，`collect` 才物化分配 |
-| 借用代替分配 | 计数 `HashMap<String,_>` → `HashMap<&str,_>`，仅输出时 `to_string()` | 键借用原始缓冲 → 要求整个输入驻留内存；流式逐行读不能照搬 |
-| entry 合并查找 | `contains_key`+`insert`/`get_mut`（2-3 次哈希）→ `*m.entry(k).or_insert(0) += 1` | 无；clippy `map_entry` 可自动抓 |
-| Rayon map-reduce | `par_lines().fold(HashMap::new, …).reduce(…)`：线程私有 map，最后合并 | 仅大数据量 + 任务独立 + CPU 密集；小任务被调度/合并成本反噬。`par_lines` 与 `&str` 键共享同一前提——整段输入在内存 |
-
-**无序删除**：`Vec::remove(i)` O(n) 整体前移；业务不依赖顺序时用 `swap_remove(i)` O(1) 末尾补位。循环删除时换进来的元素要原地重查（索引不前进）；批量条件删除直接 `retain`/`extract_if`（1.87+），更不易错。
-
-> 所有倍数都出自特定 benchmark，不可外推。顺序：criterion/divan + `black_box` 定位热点 → 删分配、重复计算、多余约束（保序、拥有权）→ 最后才谈并行。
-
-### 高级优化速查
-| 症状 | 方案 |
-|------|------|
-| p99 差 | `#[cold]` 标记错误路径 |
-| 分配多 | `buf.clear()` 复用容量 |
-| 并发慢 | `Arc::clone` 放边界 |
-| 碎片化 | `mimalloc`/`jemalloc` |
-
-> **Rust ↔ C/C++ FFI 项目**：使用 `rust-ffi` skill。
-
----
-
-## 6. 通用性能优化
-
-### 结构体字段顺序（内存对齐）
-```cpp
-// ❌ 随意排列 — 24 bytes
-struct Bad { char a; int64_t b; char c; int32_t d; };
-
-// ✅ 按大小降序 — 16 bytes
-struct Good { int64_t b; int32_t d; char a; char c; };
-```
-> **法则**：`u64` → `u32` → `u16` → `u8`
-
-### 类型驱动设计
-```cpp
-// 1. Newtype 防止参数混淆
-struct UserId { std::string value; };
-struct Email { std::string value; };
-
-// 2. 所有权清晰
-void read(const Request& req);           // 只读
-void take(std::unique_ptr<Request> req); // 转移
-
-// 3. 类型化错误
-enum class LoadError { NotFound, Timeout, Corrupt };
-std::expected<Data, LoadError> load(id);
-```
-
-> **编译时拦截错误，而不是凌晨两点生产爆炸。** 借用检查器是安全网，不是惩罚。
-
----
-
-## 7. Shell 检测
-
-### POSIX
-```bash
-if [ -n "$BASH_VERSION" ]; then SHELL_TYPE=bash
-elif [ -n "$ZSH_VERSION" ]; then SHELL_TYPE=zsh; fi
-```
-
-### PowerShell
-```powershell
-if (-not $PSVersionTable) { exit 1 }
-```
-
-> 提供两个入口：`bootstrap.sh` + `bootstrap.ps1`
-
----
-
-## 8. 沟通原则
-
-- **如果我的观点有误或过时，随时直接指出，不留情面。** 以事实与数据为准，立刻修正。
-- **每次回答以「爸爸」问候开头**（canary 标记）：开头没有问候 = 本文件未被加载或指令遵循退化。新机器先查 chezmoi 是否 apply；会话中途消失则怀疑上下文异常。
-
----
-
-## 9. 打包与发布
-
-> 以下规则适用于所有语言的项目，语言特定的编译配置放各自专项章节。
-
-### 版本号
-- 版本号定义在项目的**唯一权威来源**（如 `Cargo.toml`、`pyproject.toml`、`CMakeLists.txt`、`package.json`）
-- 格式遵循 [SemVer](https://semver.org/)：`MAJOR.MINOR.PATCH`（如 `0.3.0`）
-- 多模块/多包项目统一版本，不允许子模块各自定义版本号
-
-### 版本升级用语（强制约定）
-
-- **用户指定目标版本时，目标版本优先**，例如“版本改为 0.8.1”就使用 `0.8.1`，不自行换成其他版本。
-- **“小版本”统一表示 PATCH 补丁版本**，适用于所有项目，包括 `0.x` 阶段；严禁将中文“小版本”机械理解为 SemVer 的 `MINOR`。
-
-| 用户表述 | 执行规则 | 示例 |
-|----------|----------|------|
-| “小版本” / “bump 小版本” / “bump patch” / “补丁号加一” | `PATCH + 1`，保持 `MAJOR.MINOR` | `0.8.0 → 0.8.1` |
-| “bump minor” / “次版本号加一” | `MINOR + 1`，`PATCH` 清零 | `0.8.1 → 0.9.0` |
-| “bump major” / “主版本号加一” | `MAJOR + 1`，`MINOR.PATCH` 清零 | `0.8.1 → 1.0.0` |
-
-- 用户要求升级但未指定级别，且改动仅是保持兼容的问题修复、解析兼容修复或 CI/构建修正时，默认递增 `PATCH`。
-  新增功能或破坏性变更需结合实际发布范围判断，不能仅凭“bump”一词自行升级 `MINOR` 或 `MAJOR`。
-- 执行前读取权威版本，并简短说明“当前版本 → 目标版本”；不要等提交或推送后才解释升级级别。
-- 同步更新锁文件中的应用版本及当前发布示例；不改第三方依赖版本、历史记录或固定测试样例中的版本。
-
-### 版本格式
-| 场景 | 格式 | 示例 |
-|------|------|------|
-| Release（推送 `v*` 标签） | `v{version}+{commit7位}` | `v0.3.0+abc1234` |
-| Dev（分支推送） | `v{version}+{日期}.{commit7位}` | `v0.3.0+20260303.abc1234` |
-| 本地部署 | `v{version}` | `v0.3.0` |
-
-### 产物命名
-`{项目名}-{完整版本}-{平台}.{扩展名}`
-
-| 平台 | 扩展名 | 示例 |
-|------|--------|------|
-| Linux x64 | `.tar.gz` | `myapp-v0.3.0+abc1234-linux-x64.tar.gz` |
-| Windows x64 | `.zip` | `myapp-v0.3.0+abc1234-windows-x64.zip` |
-| macOS ARM64 | `.tar.gz` | `myapp-v0.3.0+abc1234-macos-arm64.tar.gz` |
-
-### 打包内容
-```
-package/
-├── 可执行文件（或入口脚本）
-├── VERSION                    # 纯文本版本号
-└── 运行时必需资源/            # 字体、配置、静态文件等
-```
-- 只打包**运行时必需**的文件，不含源码、测试、文档
-- `VERSION` 文件内容与产物命名中的版本一致
-
-### 二进制压缩
-- Linux：UPX `--best --lzma`（编译型语言适用）
-- Windows：**跳过** —— UPX 加壳的无签名 exe 触发 Defender/SmartScreen 木马误报（`Wacatac`/`Wacapew!ml` 类启发式判定），体积换可用性不划算；根治需 Authenticode 签名证书
-- macOS：跳过（UPX 不支持）
-
-### 预发布标记
-标签含 `beta` / `alpha` / `rc` → Release 标记为 prerelease
-
-### 本地部署脚本
-- 统一放 `scripts/` 目录
-- 提供 `deploy.sh`（Linux/macOS）+ `deploy-windows.ps1`（Windows）
-- 产物输出到 `bin/` 目录
-
-### CI/CD 流水线触发
-| 事件 | 动作 |
-|------|------|
-| push / PR → main/master/develop | lint → test → build（多平台） |
-| push `v*` 标签 | 上述 + 上传产物 + 创建 Release |
-
-**Rust 项目 CI 顺序**：`cargo fmt --all` → `cargo clippy --all --all-targets -- -D warnings` → `cargo test` → `cargo build`（严格串行，前一步失败则终止；test/build 步加 `CARGO_BUILD_WARNINGS=deny`，见 §5 警告拦截）
-
----
-
-## 10. Draw.io（macOS）
-
-```bash
-# 导出 PNG（2x 缩放）
-/Applications/draw.io.app/Contents/MacOS/draw.io -x -f png -s 2 input.drawio
-```
-
-- 默认样式：`rounded=1`、`spacing=15`、边路由 `orthogonal`
-
----
-
-## 11. Dotfiles 管理（chezmoi）
-
-所有 dotfiles（**包括本文件**）由 chezmoi 管理，源仓库：`~/.local/share/chezmoi`。
-
-**链接拓扑**（权威源只有一份，其余为符号链接，改权威源即全端生效）：
-
-| 内容 | 权威源 | 符号链接 |
-|------|--------|----------|
-| Agent 指令 | `~/.claude/CLAUDE.md`（本文件） | `~/.codex/AGENTS.md`、`~/.agents/AGENTS.md` → 本文件 |
-| Agent skills | `~/.agents/skills/` | `~/.claude/skills/*`、`~/.codex/skills/*` |
-
-- Claude Code 反过来**不读 `AGENTS.md`**（2.1.247 实测：项目里只有 `AGENTS.md` 时读到的是空），
-  且**没有任何设置能开启**——它没有 codex 那种 `project_doc_fallback_filenames` 机制，
-  只能逐仓库 `ln -s AGENTS.md CLAUDE.md`。目前 `repo/blog`（自有仓库）与 `repo/robot/dimos`
-  （上游第三方，宜用 `.git/info/exclude` 做本机私有链）两处只有 `AGENTS.md`，尚未建链；
-  新仓库若只写 `AGENTS.md`，Claude Code 这侧要手动补一次
-
-- Codex CLI 只读 `~/.codex/AGENTS.md`（不读 `~/.agents/AGENTS.md`，故与 kimi 那条链不冲突）。
-  两点要留神：`AGENTS.override.md` 在同级会**完全顶替** `AGENTS.md`（全局、项目级皆然），
-  谁往 `~/.codex/` 扔一个就等于整份指令失效；项目级默认只认 `AGENTS.md`，
-  故 config 里开了 `project_doc_fallback_filenames = ["CLAUDE.md"]`——
-  语义是回退不是叠加，`AGENTS.md` 在就用它，缺了才读 `CLAUDE.md`
-
-- Kimi Code CLI 不读 `~/CLAUDE.md`，也不读裸的 `~/AGENTS.md`。它的用户级发现顺序是
-  `~/.kimi-code/AGENTS.md` → `~/.agents/AGENTS.md`（或 `agents.md`），两处**分别加载会叠加**，
-  所以只在通用位置 `~/.agents/AGENTS.md` 建链，不要两处都建
-
-- **严禁直接修改目标文件**（如 `~/.claude/CLAUDE.md`、`~/.cargo/config.toml`）——下次 `chezmoi apply` 会被源文件覆盖
-- 正确流程：改源文件 → 预览 → 应用 → 提交
-
-```bash
-chezmoi source-path <目标文件>    # 定位源文件，直接编辑它
-chezmoi diff                      # 预览将要应用的变更
-chezmoi apply <目标文件>          # 只应用指定文件，避免顺带覆盖其他漂移
-cd "$(chezmoi source-path)" && git add <源文件> && git commit   # 提交源仓库
-```
-
-- 新文件纳管：`chezmoi add <目标文件>`
-- 机器差异用模板（`*.tmpl` + `.chezmoidata`）处理，不要 fork 多份配置
-- **密钥零明文**：含真实密钥/令牌的文件必须用 `encrypted_` 前缀（age/gpg 加密）或用模板从密码管理器读取；`private_` 只改本地权限（0600），推到**公开仓库仍是明文**，绝不能靠它护密钥
-
----
-
-## 12. Python 工具链（默认使用 uv）
-
-- **Python 默认使用 `uv`** 管理解释器、虚拟环境、依赖和命令运行。用户明确指定其他工具，或现有项目有必须遵守的工具链约束时按其要求执行，不擅自迁移已有项目。
-- 新 Python 项目以 `pyproject.toml` 声明依赖、`uv.lock` 锁定解析结果，两者一并提交，不手改锁文件。添加/移除依赖用 `uv add` / `uv remove`，开发依赖用 `uv add --dev`，同步项目环境用 `uv sync`；不要用临时安装代替依赖声明。
-- 项目内运行脚本、测试和开发工具用 `uv run`，例如 `uv run python scripts/check.py`、`uv run pytest`、`uv run ruff check .`。默认不直接调用裸 `python` / `pip` / `pytest`，也不要求手动激活虚拟环境。
-- CI 和按已提交版本复现环境时用 `uv sync --locked`、`uv run --locked ...`，锁文件与项目声明不一致应报错，不能在验证时静默更新锁文件。
-- 临时使用独立 CLI 工具用 `uvx <工具>`（即 `uv tool run <工具>`）；依赖当前项目环境的工具仍用 `uv run`。
-- 独立单文件脚本需要第三方依赖时，用 `uv add --script script.py <依赖>` 写入 PEP 723 内联元数据，再用 `uv run script.py` 执行。非 Python 项目中的临时检查可用 `uv run --no-project python ...`，不为一次运行创建项目配置。
-- 兼容已有 `requirements.txt` 项目时，复用项目的隔离环境，缺失时用 `uv venv` 创建，再用 `uv pip install -r requirements.txt` 安装；是否迁移到 `pyproject.toml` / `uv.lock` 由项目范围决定。
-- 复用项目约定的 Python 版本与隔离环境；依赖不装入系统 Python，不使用 `sudo pip` 或 `uv pip install --system`。`uv` 缺失时按项目约定处理安装，不默默切回全局 `pip`。
-
----
-
-> 此文件为个人偏好基线。新项目可按需裁剪/调整，但请先确认差异点。
+个人工程偏好基线；只加载当前任务需要的专项技能与参考资料。
+主要使用 C++20，也使用 Python / Go / Rust；目标平台优先 Linux / Windows。
+
+## 沟通与交付
+
+- 只用中文交流与注释，每次回答以「爸爸」开头。
+- 观点有误或过时直接指出，以事实与验证结果为准。
+- 完整实现已授权目标，重视可读性、可移植性和维护成本，不用占位实现交付。
+- 简短说明关键选择、验证结果和未解决问题；不把未执行的检查说成通过。
+- 按任务风险选择流程，不因文件数量、固定角色或仪式化审批扩大工作。
+- 已有授权持续有效；正常实现步骤直接推进，范围外发布、删除或外部写入不从技能推定授权。
+- 明确用户要求优先；已有项目工具链、兼容性和发布协议优先于个人新项目默认值。
+- 遇到实质冲突先说明影响；有足够上下文时自行解决常规选择。
+
+## 代码与质量
+
+- C++ 函数、变量和文件用 `snake_case`，类型用 `UpperCamelCase`；保留已有公共接口兼容性。
+- C++ 默认 C++20；公共头最小暴露，使用 `#pragma once`，实现放 `.cc/.cpp`。
+- 资源用 RAII 管理；禁止裸 `new/delete`，使用智能指针；严禁 `goto`。
+- 优先 `const/constexpr`、`string_view`、`span`、`optional`、`variant`、`[[nodiscard]]` 和 `enum class`。
+- 用独立类型表达标识、所有权和错误；尽量不用异常，仅有“缺失”语义时用 `optional`。
+- `std::expected` 需要 C++23；C++20 项目使用现有结果类型或 `variant`，不擅自升级标准。
+- 保留用户已有修改，不覆盖无关改动；先阅读项目约定，再调整代码。
+- 测试应快且确定；单元测试不依赖网络或脆弱时序，集成测试使用最小数据与 golden files。
+- 按修改风险完成必要检查；关键模块关注覆盖率，性能优化先测量再改动。
+- 不把特定基准的性能倍数当成保证；保持业务语义、对象生命周期和 ABI 约束。
+
+## Git 与提交
+
+- 保护 `master`；新功能用 `feat/*`，修复用 `fix/*`，尊重已有分支策略。
+- 使用 Conventional Commits，不用 scope 括号，不加 `Co-Authored-By` 署名。
+- 推荐格式：`<emoji> <type>: 简短中文描述`；正文按需写问题和具体修改。
+- 类型参考：✨ feat、🐛 fix、♻️ refactor、📝 docs、⚡ perf、🎨 style、✅ test、🔨 build、🗑️ remove。
+- 在 Rust 项目中，每次提交前必须先执行 `cargo fmt --all`，再执行 `cargo clippy --all --all-targets -- -D warnings`，零警告后提交。
+- 非 Rust 项目执行自身适用检查；不因通用提交规则运行无关 Cargo 命令。
+- 不把其他人的改动夹带进提交；提交、推送和发布依用户当前任务及已有授权执行。
+
+## 版本语义
+
+- 版本在项目唯一权威来源定义，遵守 SemVer；新建多模块应用默认共享版本，保留既有独立发布协议。
+- 用户指定目标版本时直接使用该版本，不自行替换。
+- “小版本”/“bump patch”/“补丁号加一”统一表示 `PATCH + 1`，包括 `0.x` 项目。
+- “bump minor”/“次版本号加一”表示 `MINOR + 1` 并清零 PATCH。
+- “bump major”/“主版本号加一”表示 `MAJOR + 1` 并清零 MINOR/PATCH。
+- 未指定级别且仅为兼容修复、解析修复或 CI/构建修正时默认 PATCH；其他改动按实际发布范围判断。
+- 执行前读取权威版本，简短说明“当前版本 → 目标版本”。
+- 同步应用锁文件版本和当前发布示例，不改第三方依赖、历史记录或固定测试样例的版本。
+- 产物命名、打包和 CI 规则按需读取 `release-engineering`。
+
+## Python 工具链
+
+- 默认使用 `uv` 管理解释器、隔离环境、依赖与命令；复用现有项目版本，不擅自迁移工具链。
+- 新项目用 `pyproject.toml` 声明依赖并提交 `uv.lock`；不手改锁文件。
+- 依赖使用 `uv add` / `uv remove`，开发依赖用 `uv add --dev`，环境同步用 `uv sync`。
+- 项目脚本、测试和工具用 `uv run`；不默认用裸 `python` / `pip` / `pytest` 或要求手动激活环境。
+- CI 与锁定复现用 `uv sync --locked`、`uv run --locked ...`，验证时不静默更新锁文件。
+- 独立临时 CLI 用 `uvx`；依赖项目环境的工具仍用 `uv run`。
+- 单文件脚本需要第三方依赖时用 `uv add --script` 写入 PEP 723 元数据，再用 `uv run` 执行。
+- 非 Python 项目的一次性检查可用 `uv run --no-project python ...`，不为此创建项目配置。
+- 已有 `requirements.txt` 项目复用隔离环境，缺失时用 `uv venv`，依赖用 `uv pip install -r requirements.txt`。
+- 不向系统 Python 安装依赖，不用 `sudo pip` 或 `uv pip install --system`。
+- `uv` 缺失时按项目约定处理，不默默改用全局 `pip`。
+
+## Dotfiles 与密钥
+
+- 所有 dotfiles（包括本文件）由 chezmoi 管理，源仓库为 `~/.local/share/chezmoi`。
+- 严禁直接改已纳管目标文件；先用 `chezmoi source-path <目标文件>` 定位并修改源文件。
+- 流程：改源文件 → `chezmoi diff <目标文件>` 预览 → `chezmoi apply <目标文件>` 定向应用 → 提交源仓库。
+- 只应用本次相关目标，避免覆盖其他漂移；新文件用 `chezmoi add <目标文件>` 纳管。
+- 机器差异使用 `*.tmpl` 与 `.chezmoidata`，不复制多套配置。
+- 真实密钥和令牌禁止明文入库；使用 `encrypted_` 的 age/gpg 加密或密码管理器模板。
+- `private_` 只控制文件权限，不加密内容，不能用于保护公开仓库中的密钥。
+- 客户端发现机制、符号链接、技能恢复和工具备忘按需读取 `dotfiles-maintenance`。
+
+## 专项规则按需加载
+
+- C++ 代码、CMake、并发与性能：`cpp-engineering`。
+- Rust 代码、Cargo、Tokio 与性能：`rust-engineering`；nightly 和 mimalloc 是新项目偏好，不强迁现有项目。
+- 跨语言打包、版本产物、部署和 CI：`release-engineering`。
+- Rust/C/C++ 边界：`rust-ffi`；ROS 2 / C++ 机器人并发：`ros2-cpp`；Bevy / Archetype ECS：`bevy-ecs`。
+- 设计评审：`design-review`，存在领域文档时再加载相应参考流程。
+- PRD 或拆工单：`planning`，是否发布到工单系统由任务授权决定。
+- `setup-matt-pocock-skills` 仅在需要工单集成且项目缺少配置时运行，普通诊断、测试不以它为前置。
+- 仅在用户明确调用 `team-swe` 时加载它；普通任务按实际需要协作，不自动进入该技能流程。
+- 技能只加载相关参考文件；系统和插件提供的技能由所属组件维护，不复制另一份到个人目录。
