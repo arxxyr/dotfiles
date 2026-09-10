@@ -32,7 +32,11 @@ Automatic commits and pushes are disabled. Review, apply only relevant targets, 
 `dot_claude/CLAUDE.md` is the single source of global preferences, shared with Codex and generic
 `AGENTS.md` through symlinks. Detailed engineering rules are loaded on demand instead of included globally.
 
-All 13 personal skills have complete source directories under `dot_agents/skills/`, deployed to
+Shared instructions assign coordination, design, final review and key decisions to `cc-codex`;
+implementation, self-testing and authorized deployment to `cc-claude`; and very simple, low-risk tasks
+to `cc-kimi`. This is a task-routing convention, not automatic orchestration implemented by the launchers.
+
+All 10 personal skills have complete source directories under `dot_agents/skills/`, deployed to
 `~/.agents/skills/` with Claude/Codex/OpenClaw links to the same content:
 
 | Purpose | Skills |
@@ -40,13 +44,13 @@ All 13 personal skills have complete source directories under `dot_agents/skills
 | Engineering preferences | `cpp-engineering`, `rust-engineering`, `release-engineering` |
 | Specialized engineering | `rust-ffi`, `ros2-cpp`, `bevy-ecs` |
 | Configuration | `dotfiles-maintenance`, `proxychains-gateway` |
-| Supporting workflows | `handoff`, `team-swe` (explicit invocation only) |
-| Specialized tools | `archify`, `south-asia-translator`, `a-share-trend-entry` |
+| Specialized tools | `archify`, `south-asia-translator` |
 
 Design reviews, PRDs, task slicing, issue triage and skill discovery use task-specific instructions,
 existing project documentation and available tools, without separate global workflow skills.
 Publishing still requires task authorization; ordinary diagnosis and testing do not initialize tracker
-integration. System and plugin skills, including the bundled `skill-creator` and `skill-installer`,
+integration. Handoffs and team collaboration also follow the task directly. System and plugin skills,
+including the bundled `skill-creator` and `skill-installer`,
 remain owned by their respective components.
 
 ### Migration and Recovery
@@ -58,6 +62,11 @@ remain owned by their respective components.
 - `triage`, `setup-matt-pocock-skills` and `find-skills` are also retired. Adopted tracker conventions
   belong in project documentation, without global initialization requirements. Removed skill contents
   and original installer provenance remain in Git history.
+- `team-swe` and `handoff` are retired, including their global entries and dedicated invocation policy.
+- `a-share-trend-entry` is archived as [research notes](notes/research/a-share-trend-entry/README.md),
+  preserving its methodology and four references while retiring the skill and client links.
+  Git retains `notes/`, but chezmoi ignores it: these files are neither deployed to home nor discovered
+  as skills. Historical data and thresholds require fresh verification before reuse.
 - `archify` is restored from the complete `tt-a1i/archify` skill directory at
   the commit pinned in `.chezmoidata.toml`, including its license and third-party notices.
   It requires Node.js 18+; run `node bin/archify.mjs doctor` from the skill directory.
@@ -86,8 +95,8 @@ directories and check ownership, links, lock preservation/idempotency, exact rem
 They also restore the complete real skill source into an empty target and compare every deployed file.
 `--parent-dirs` handles missing parent directories; both `AGENTS.md` targets restore the shared instruction links.
 The skill validator reuses the bundled `skill-creator` validator; uv provides PyYAML from inline script metadata.
-`team-swe` uses Claude's `disable-model-invocation` plus Codex's `agents/openai.yaml` explicit-only policy;
-the Claude field is a known extension outside the stock Codex quick validator's whitelist.
+Research-note tests exercise all three OS ignore-template branches, checking that ordinary configuration
+is deployed while archived notes are not and existing destination notes remain untouched.
 Start a new session to refresh discovery. Windows requires permission to create symlinks.
 
 ## Automated Setup (run_once)

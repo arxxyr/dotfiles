@@ -32,7 +32,10 @@ chezmoi apply ~/.zshrc            # 定向应用；随后手动提交，需要�
 `dot_claude/CLAUDE.md` 是全局偏好的唯一源，部署后供 Claude 使用，Codex 与通用
 `AGENTS.md` 通过符号链接共享。全局只保留长期约束，详细规范按任务加载，避免每轮注入整本手册。
 
-13 个个人技能均完整保存在 `dot_agents/skills/`，不是只有链接或安装登记。
+共享指令约定：`cc-codex` 总管、设计方案并负责最终评审与关键决策；`cc-claude` 负责具体开发、
+自测和已授权部署；很简单的低风险任务使用 `cc-kimi`。这是任务分工约定，不是启动器自动调度功能。
+
+10 个个人技能均完整保存在 `dot_agents/skills/`，不是只有链接或安装登记。
 部署到 `~/.agents/skills/`，Claude / Codex / OpenClaw 各自链接到同一份内容：
 
 | 用途 | 技能 |
@@ -40,12 +43,11 @@ chezmoi apply ~/.zshrc            # 定向应用；随后手动提交，需要�
 | 通用工程规范 | `cpp-engineering`、`rust-engineering`、`release-engineering` |
 | 领域工程规范 | `rust-ffi`、`ros2-cpp`、`bevy-ecs` |
 | 配置与维护 | `dotfiles-maintenance`、`proxychains-gateway` |
-| 辅助流程 | `handoff`、`team-swe`（仅明确调用） |
-| 专用能力 | `archify`、`south-asia-translator`、`a-share-trend-entry` |
+| 专用能力 | `archify`、`south-asia-translator` |
 
 设计评审、PRD、任务拆解、工单分诊及技能查找直接按任务处理，复用项目已有文档和可用工具，
 不再维护对应的全局流程技能。发布到工单系统仍由具体任务授权决定，普通诊断、测试不运行
-工单初始化。`team-swe` 不固定角色人数或批准口令。内置 `skill-creator`、`skill-installer`
+工单初始化。交接与团队协作也直接按任务处理。内置 `skill-creator`、`skill-installer`
 和其他系统、插件技能保留，由其所属组件更新，不复制进个人源。
 
 ### 来源与恢复
@@ -56,6 +58,10 @@ chezmoi apply ~/.zshrc            # 定向应用；随后手动提交，需要�
   `improve-codebase-architecture`、`zoom-out`、`caveman`；这些通用任务直接使用 agent 本身能力。
 - 同时退役 `triage`、`setup-matt-pocock-skills`、`find-skills`；项目实际采用的工单协议保留在项目内，
   不在全局技能中强制初始化。被删除的技能正文与原安装来源可查 Git 历史。
+- `team-swe` 和 `handoff` 已退役；不再保留对应全局入口或专用调用策略。
+- `a-share-trend-entry` 已迁入[研究笔记](notes/research/a-share-trend-entry/README.md)：
+  方法正文与四份参考保留，旧技能源和客户端链接退役。`notes/` 随 Git 保存但由 chezmoi 忽略，
+  不部署到 home，也不作为技能发现；历史数据和阈值使用前应重新核实。
 - `archify` 恢复自 `tt-a1i/archify` 的完整技能目录，固定提交记录在 `.chezmoidata.toml`；
   上游许可证及第三方声明随包保留。运行需要 Node.js 18+，`node bin/archify.mjs doctor` 可检查资源。
   更新时审查指定版本后替换 chezmoi 源，不直接更新生成目标；上游开发测试可能需要完整上游仓库。
@@ -80,8 +86,7 @@ uv run tests/validate_skills.py
 包含源/链接一致性、锁文件保留与幂等性、精确清理和系统/未知技能保留检查，以及真实完整源向空目标恢复的逐文件核验。
 `--parent-dirs` 支持父目录尚不存在的恢复；两个 `AGENTS.md` 目标补齐全局指令共享链接。
 技能验证脚本通过内置 `skill-creator` 验证入口，PyYAML 依赖由脚本内联声明、uv 隔离运行。
-`team-swe` 同时使用 Claude 的 `disable-model-invocation` 和 Codex 的
-`agents/openai.yaml` 显式调用策略；前者是原版 Codex 快速验证器白名单之外的已知扩展字段。
+研究笔记测试覆盖三个平台的忽略模板分支，确认普通配置正常部署，研究笔记不部署，目标已有笔记不被覆盖。
 变更后开启新会话以刷新技能目录；Windows 符号链接仍需系统允许创建链接。
 
 ## 自动化安装（run_once）

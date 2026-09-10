@@ -21,6 +21,7 @@ CLIENT_SOURCES = {
     "codex": "dot_codex",
     "openclaw": "private_dot_openclaw",
 }
+RESEARCH_ARCHIVE = Path("notes/research/a-share-trend-entry")
 
 
 def render(relative_path, operating_system=None):
@@ -56,6 +57,29 @@ class SkillSourceTests(unittest.TestCase):
                 self.assertFalse(
                     (REPO / client / "skills" / f"symlink_{name}").exists()
                 )
+
+    def test_research_archive_has_documents_without_skill_entry(self):
+        self.assertIn("a-share-trend-entry", RETIRED)
+        archive = REPO / RESEARCH_ARCHIVE
+        required_files = {
+            "README.md",
+            "methodology.md",
+            "references/news-catalyst-filter.md",
+            "references/spcx-slow-bottom-scenario-20260607.md",
+            "references/theme-activity-20260607.md",
+            "references/zhongtian-600522-20260607.md",
+        }
+        for relative in required_files:
+            with self.subTest(document=relative):
+                self.assertTrue((archive / relative).is_file())
+                self.assertTrue(
+                    (archive / relative).read_text(encoding="utf-8").strip()
+                )
+        self.assertFalse(
+            any(path.name.lower() == "skill.md" for path in archive.rglob("*"))
+        )
+        methodology = (archive / "methodology.md").read_text(encoding="utf-8")
+        self.assertNotEqual(methodology.lstrip().splitlines()[0], "---")
 
     def test_removal_targets_are_exact_and_platform_safe(self):
         expected = {
@@ -125,6 +149,70 @@ class SkillLockTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "隔离目录迁移测试需要无需提权创建符号链接")
 class MigrationTests(unittest.TestCase):
+    def test_research_notes_are_not_deployed_on_any_platform(self):
+        with tempfile.TemporaryDirectory(prefix="chezmoi-research-notes-") as directory:
+            temporary = Path(directory)
+            source = temporary / "source"
+            source.mkdir()
+            shutil.copyfile(
+                REPO / ".chezmoiignore.tmpl", source / ".chezmoiignore.tmpl"
+            )
+            shutil.copytree(REPO / "notes", source / "notes")
+            (source / "dot_visible").write_text("应部署的配置\n", encoding="utf-8")
+            config = temporary / "config.toml"
+            config.write_text("", encoding="utf-8")
+            for operating_system in ("linux", "darwin", "windows"):
+                with self.subTest(operating_system=operating_system):
+                    destination = temporary / operating_system
+                    personal_note = destination / RESEARCH_ARCHIVE / "methodology.md"
+                    personal_note.parent.mkdir(parents=True)
+                    personal_note.write_text("用户原有笔记\n", encoding="utf-8")
+                    command = [
+                        "chezmoi",
+                        "--source",
+                        str(source),
+                        "--destination",
+                        str(destination),
+                        "--config",
+                        str(config),
+                        "--persistent-state",
+                        str(temporary / f"{operating_system}.boltdb"),
+                        "--cache",
+                        str(temporary / "cache"),
+                        "--override-data",
+                        json.dumps({"chezmoi": {"os": operating_system}}),
+                        "--force",
+                    ]
+                    managed = subprocess.run(
+                        command + ["managed", "--path-style", "relative"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(managed.stdout.splitlines(), [".visible"])
+                    # 对隔离源做完整应用，覆盖意外作为普通文件部署的回归。
+                    subprocess.run(
+                        command + ["apply", "--exclude", "scripts"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(
+                        personal_note.read_text(encoding="utf-8"), "用户原有笔记\n"
+                    )
+                    self.assertEqual(
+                        (destination / ".visible").read_text(encoding="utf-8"),
+                        "应部署的配置\n",
+                    )
+                    self.assertEqual(
+                        {
+                            path.relative_to(destination)
+                            for path in destination.rglob("*")
+                            if path.is_file() or path.is_symlink()
+                        },
+                        {Path(".visible"), RESEARCH_ARCHIVE / "methodology.md"},
+                    )
+
     def test_full_source_restores_to_empty_destination(self):
         with tempfile.TemporaryDirectory(prefix="chezmoi-skills-restore-") as directory:
             temporary = Path(directory)

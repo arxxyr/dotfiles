@@ -1,8 +1,3 @@
----
-name: a-share-trend-entry
-description: Analyze A-share bottom stabilization and trend-entry conditions with risk-first, data-driven checklists. Use when the user asks whether A shares, a specific stock, Zhongtian Technology 600522, Shanghai Composite 4000, CPO/optical communications, or an empty-position account is ready for bottom-fishing, trend buying, staged entry, or confirmation after a pullback.
----
-
 # A-Share Trend Entry
 
 ## Purpose

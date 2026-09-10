@@ -4,15 +4,12 @@
 #     "pyyaml>=6.0.3",
 # ]
 # ///
-"""复用系统技能验证器，并单独验证共享技能的 Claude 扩展字段。"""
+"""只读复用系统技能验证器，检查源仓库中的个人技能。"""
 
 import importlib.util
 import os
 import sys
-import tempfile
 from pathlib import Path
-
-import yaml
 
 
 def main():
@@ -33,31 +30,7 @@ def main():
     failures = []
     entries = sorted((repository / "dot_agents/skills").glob("*/SKILL.md"))
     for entry in entries:
-        if entry.parent.name != "team-swe":
-            valid, message = validator.validate_skill(entry.parent)
-        else:
-            # 原验证器不识别 Claude 扩展；只允许这一项且必须是显式调用禁令。
-            content = entry.read_text(encoding="utf-8")
-            _, frontmatter, body = content.split("---", 2)
-            metadata = yaml.safe_load(frontmatter)
-            policy = yaml.safe_load(
-                (entry.parent / "agents/openai.yaml").read_text(encoding="utf-8")
-            )
-            if metadata.pop("disable-model-invocation", None) is not True:
-                failures.append("team-swe: Claude 显式调用策略缺失或类型错误")
-            if policy.get("policy", {}).get("allow_implicit_invocation") is not False:
-                failures.append("team-swe: Codex 显式调用策略缺失或类型错误")
-            with tempfile.TemporaryDirectory(prefix="skill-validator-") as temporary:
-                normalized = Path(temporary)
-                (normalized / "SKILL.md").write_text(
-                    "---\n"
-                    + yaml.safe_dump(metadata, allow_unicode=True)
-                    + "---"
-                    + body,
-                    encoding="utf-8",
-                )
-                valid, message = validator.validate_skill(normalized)
-            message += "（Claude 扩展字段与 Codex 调用策略已单独检查）"
+        valid, message = validator.validate_skill(entry.parent)
         print(f"{entry.parent.name}: {message}")
         if not valid:
             failures.append(f"{entry.parent.name}: {message}")
