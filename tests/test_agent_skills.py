@@ -270,6 +270,7 @@ class MigrationTests(unittest.TestCase):
                     links.mkdir(parents=True, exist_ok=True)
                     (links / name).symlink_to(f"../../.agents/skills/{name}")
             sentinels = [
+                ".unrelated",
                 ".codex/skills/.system/skill-creator/SKILL.md",
                 ".codex/plugins/cache/untouched/SKILL.md",
                 ".agents/skills/future-user-skill/SKILL.md",
@@ -280,6 +281,7 @@ class MigrationTests(unittest.TestCase):
                 sentinel = destination / relative
                 sentinel.parent.mkdir(parents=True, exist_ok=True)
                 sentinel.write_text("不可删除\n", encoding="utf-8")
+            (source / "dot_unrelated").write_text("本次不得应用\n", encoding="utf-8")
             old_entry = destination / ".agents/skills/south-asia-translator/skill.md"
             old_entry.parent.mkdir(parents=True, exist_ok=True)
             old_entry.write_text("小写入口\n", encoding="utf-8")
@@ -288,7 +290,10 @@ class MigrationTests(unittest.TestCase):
                 json.dumps(
                     {
                         "version": 3,
-                        "skills": {"diagnose": {}, "future-user-skill": {"x": 1}},
+                        "skills": {
+                            **{name: {} for name in RETIRED},
+                            "future-user-skill": {"x": 1},
+                        },
                     }
                 ),
                 encoding="utf-8",
@@ -310,7 +315,32 @@ class MigrationTests(unittest.TestCase):
                 "--exclude",
                 "scripts",
             ]
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            retired_targets = [
+                str(destination / f".{client}/skills" / name)
+                for client in ("agents", *CLIENT_SOURCES)
+                for name in sorted(RETIRED)
+            ]
+            subprocess.run(
+                command + retired_targets, check=True, capture_output=True, text=True
+            )
+            for target in retired_targets:
+                self.assertFalse(os.path.lexists(target))
+            # 精确退役目标之外的旧入口、锁记录与其他配置不应被顺带应用。
+            self.assertTrue(old_entry.exists())
+            self.assertTrue(
+                RETIRED <= json.loads(lock.read_text(encoding="utf-8"))["skills"].keys()
+            )
+            for relative in sentinels:
+                self.assertEqual(
+                    (destination / relative).read_text(encoding="utf-8"), "不可删除\n"
+                )
+            targets = [
+                str(destination / f".{client}/skills")
+                for client in ("agents", *CLIENT_SOURCES)
+            ] + [str(lock)]
+            subprocess.run(
+                command + targets, check=True, capture_output=True, text=True
+            )
             for name in RETIRED:
                 for client in ("agents", *CLIENT_SOURCES):
                     self.assertFalse(
@@ -333,7 +363,9 @@ class MigrationTests(unittest.TestCase):
                 json.loads(lock.read_text(encoding="utf-8"))["skills"],
                 {"future-user-skill": {"x": 1}},
             )
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            subprocess.run(
+                command + targets, check=True, capture_output=True, text=True
+            )
             for relative in sentinels:
                 self.assertTrue((destination / relative).is_file())
 

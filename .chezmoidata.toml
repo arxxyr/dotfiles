@@ -32,16 +32,14 @@ trusted_projects = ["repo/robot/robot-system", ".openclaw", "Documents/bp", "rep
 # 源仓库完整保存这些技能；安装器锁文件不再宣称拥有它们。
 managed = [
   "a-share-trend-entry", "archify", "bevy-ecs", "cpp-engineering",
-  "design-review", "dotfiles-maintenance", "find-skills", "handoff",
-  "planning", "proxychains-gateway", "release-engineering", "ros2-cpp",
-  "rust-engineering", "rust-ffi", "setup-matt-pocock-skills",
-  "south-asia-translator", "team-swe", "triage",
+  "dotfiles-maintenance", "handoff", "proxychains-gateway", "release-engineering",
+  "ros2-cpp", "rust-engineering", "rust-ffi", "south-asia-translator", "team-swe",
 ]
 # 仅移除个人安装目录中的精确名称，不匹配 .system 或插件缓存。
 retired = [
-  "caveman", "diagnose", "grill-me", "grill-with-docs",
-  "improve-codebase-architecture", "prototype", "skill-creator", "tdd",
-  "to-issues", "to-prd", "write-a-skill", "zoom-out",
+  "caveman", "design-review", "diagnose", "find-skills", "grill-me", "grill-with-docs",
+  "improve-codebase-architecture", "planning", "prototype", "setup-matt-pocock-skills",
+  "skill-creator", "tdd", "to-issues", "to-prd", "triage", "write-a-skill", "zoom-out",
 ]
 
 [agent_skills.archify]

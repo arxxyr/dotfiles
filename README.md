@@ -32,29 +32,30 @@ chezmoi apply ~/.zshrc            # 定向应用；随后手动提交，需要�
 `dot_claude/CLAUDE.md` 是全局偏好的唯一源，部署后供 Claude 使用，Codex 与通用
 `AGENTS.md` 通过符号链接共享。全局只保留长期约束，详细规范按任务加载，避免每轮注入整本手册。
 
-18 个个人技能均完整保存在 `dot_agents/skills/`，不是只有链接或安装登记。
+13 个个人技能均完整保存在 `dot_agents/skills/`，不是只有链接或安装登记。
 部署到 `~/.agents/skills/`，Claude / Codex / OpenClaw 各自链接到同一份内容：
 
 | 用途 | 技能 |
 |---|---|
-| 设计与规划 | `design-review`（有领域文档时加载参考流程）、`planning`（PRD / 拆工单模式） |
-| 工单协作 | `triage`（已有工单分诊）、`setup-matt-pocock-skills`（仅缺失的工单集成配置） |
 | 通用工程规范 | `cpp-engineering`、`rust-engineering`、`release-engineering` |
 | 领域工程规范 | `rust-ffi`、`ros2-cpp`、`bevy-ecs` |
 | 配置与维护 | `dotfiles-maintenance`、`proxychains-gateway` |
-| 辅助流程 | `find-skills`（明确寻找/安装时）、`handoff`、`team-swe`（仅明确调用） |
+| 辅助流程 | `handoff`、`team-swe`（仅明确调用） |
 | 专用能力 | `archify`、`south-asia-translator`、`a-share-trend-entry` |
 
-`planning` 默认交付草稿，发布到工单系统仍由具体任务授权决定；普通诊断、测试和本地规划
-不运行工单初始化。`team-swe` 不固定角色人数或批准口令。内置 `skill-creator` 和其他系统、
-插件技能保留，由其所属组件更新，不复制进个人源。
+设计评审、PRD、任务拆解、工单分诊及技能查找直接按任务处理，复用项目已有文档和可用工具，
+不再维护对应的全局流程技能。发布到工单系统仍由具体任务授权决定，普通诊断、测试不运行
+工单初始化。`team-swe` 不固定角色人数或批准口令。内置 `skill-creator`、`skill-installer`
+和其他系统、插件技能保留，由其所属组件更新，不复制进个人源。
 
 ### 来源与恢复
 
-- 原 `grill-me` / `grill-with-docs` 合为 `design-review`，`to-prd` / `to-issues` 合为 `planning`。
+- 原 `grill-me` / `grill-with-docs`、`to-prd` / `to-issues` 及合并后的 `design-review`、
+  `planning` 均已退役，不再恢复这些全局流程入口。
 - 移除个人安装的 `skill-creator`、`write-a-skill`、`diagnose`、`tdd`、`prototype`、
   `improve-codebase-architecture`、`zoom-out`、`caveman`；这些通用任务直接使用 agent 本身能力。
-- 保留的 `handoff`、`triage`、`find-skills` 已补齐真实源文件；原安装来源与哈希可查 Git 历史中的锁文件。
+- 同时退役 `triage`、`setup-matt-pocock-skills`、`find-skills`；项目实际采用的工单协议保留在项目内，
+  不在全局技能中强制初始化。被删除的技能正文与原安装来源可查 Git 历史。
 - `archify` 恢复自 `tt-a1i/archify` 的完整技能目录，固定提交记录在 `.chezmoidata.toml`；
   上游许可证及第三方声明随包保留。运行需要 Node.js 18+，`node bin/archify.mjs doctor` 可检查资源。
   更新时审查指定版本后替换 chezmoi 源，不直接更新生成目标；上游开发测试可能需要完整上游仓库。

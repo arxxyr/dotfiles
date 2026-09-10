@@ -80,8 +80,6 @@
 - Rust 代码、Cargo、Tokio 与性能：`rust-engineering`；nightly 和 mimalloc 是新项目偏好，不强迁现有项目。
 - 跨语言打包、版本产物、部署和 CI：`release-engineering`。
 - Rust/C/C++ 边界：`rust-ffi`；ROS 2 / C++ 机器人并发：`ros2-cpp`；Bevy / Archetype ECS：`bevy-ecs`。
-- 设计评审：`design-review`，存在领域文档时再加载相应参考流程。
-- PRD 或拆工单：`planning`，是否发布到工单系统由任务授权决定。
-- `setup-matt-pocock-skills` 仅在需要工单集成且项目缺少配置时运行，普通诊断、测试不以它为前置。
+- 设计评审、PRD、拆工单和分诊直接按任务处理，复用项目已有文档与流程；普通诊断、测试不初始化工单系统。
 - 仅在用户明确调用 `team-swe` 时加载它；普通任务按实际需要协作，不自动进入该技能流程。
 - 技能只加载相关参考文件；系统和插件提供的技能由所属组件维护，不复制另一份到个人目录。

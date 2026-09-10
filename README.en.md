@@ -32,30 +32,33 @@ Automatic commits and pushes are disabled. Review, apply only relevant targets, 
 `dot_claude/CLAUDE.md` is the single source of global preferences, shared with Codex and generic
 `AGENTS.md` through symlinks. Detailed engineering rules are loaded on demand instead of included globally.
 
-All 18 personal skills have complete source directories under `dot_agents/skills/`, deployed to
+All 13 personal skills have complete source directories under `dot_agents/skills/`, deployed to
 `~/.agents/skills/` with Claude/Codex/OpenClaw links to the same content:
 
 | Purpose | Skills |
 |---|---|
-| Design and planning | `design-review` (conditional domain-document workflow), `planning` (PRD / issue slicing) |
-| Issue workflow | `triage`, `setup-matt-pocock-skills` (missing tracker integration only) |
 | Engineering preferences | `cpp-engineering`, `rust-engineering`, `release-engineering` |
 | Specialized engineering | `rust-ffi`, `ros2-cpp`, `bevy-ecs` |
 | Configuration | `dotfiles-maintenance`, `proxychains-gateway` |
-| Supporting workflows | `find-skills` (explicit discovery/install requests), `handoff`, `team-swe` (explicit invocation only) |
+| Supporting workflows | `handoff`, `team-swe` (explicit invocation only) |
 | Specialized tools | `archify`, `south-asia-translator`, `a-share-trend-entry` |
 
-`planning` produces drafts by default; publishing requires task authorization. Ordinary diagnosis,
-testing and local planning do not initialize tracker integration. System and plugin skills, including
-the bundled `skill-creator`, remain owned by their respective components.
+Design reviews, PRDs, task slicing, issue triage and skill discovery use task-specific instructions,
+existing project documentation and available tools, without separate global workflow skills.
+Publishing still requires task authorization; ordinary diagnosis and testing do not initialize tracker
+integration. System and plugin skills, including the bundled `skill-creator` and `skill-installer`,
+remain owned by their respective components.
 
 ### Migration and Recovery
 
-- `grill-me` / `grill-with-docs` become `design-review`; `to-prd` / `to-issues` become `planning`.
+- `grill-me` / `grill-with-docs`, `to-prd` / `to-issues`, and their merged replacements
+  `design-review` and `planning` are all retired and are not restored as global workflow entries.
 - Personal copies of `skill-creator`, `write-a-skill`, `diagnose`, `tdd`, `prototype`,
   `improve-codebase-architecture`, `zoom-out` and `caveman` are retired.
-- Retained `handoff`, `triage` and `find-skills` now have real source files. Original installer provenance
-  remains in Git history. `archify` is restored from the complete `tt-a1i/archify` skill directory at
+- `triage`, `setup-matt-pocock-skills` and `find-skills` are also retired. Adopted tracker conventions
+  belong in project documentation, without global initialization requirements. Removed skill contents
+  and original installer provenance remain in Git history.
+- `archify` is restored from the complete `tt-a1i/archify` skill directory at
   the commit pinned in `.chezmoidata.toml`, including its license and third-party notices.
   It requires Node.js 18+; run `node bin/archify.mjs doctor` from the skill directory.
   Upstream development tests may require the full upstream repository. Update the chezmoi source, not deployed files.
