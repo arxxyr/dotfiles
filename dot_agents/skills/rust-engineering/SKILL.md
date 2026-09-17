@@ -1,6 +1,6 @@
 ---
 name: rust-engineering
-description: Rust 项目的实现、Cargo 构建、Tokio 和性能约定；适用于修改 Rust 代码或构建配置，版本相关功能先核实实际工具链能力。
+description: 指导 Rust 代码实现与评审、Tokio 任务和并发设计、Cargo 构建及性能优化；适用于编写或修改 Rust 代码与构建配置，保留项目工具链和兼容性。
 ---
 
 # Rust 工程
@@ -19,6 +19,13 @@ description: Rust 项目的实现、Cargo 构建、Tokio 和性能约定；适�
 - 不持同步锁跨 `await`；锁保护的数据先在局部作用域内处理。
 - 优化先定位热点，保留业务排序、序列化与并发语义。
 
+## Tokio 编码入口
+
+编写或评审 Tokio 任务、I/O、共享状态和关闭逻辑时，先读 [运行时与性能的编码决策](references/runtime.md#tokio-编码决策)。这些选择适用于首次实现，不必等出现性能问题才考虑。
+
+- 对本次涉及的任务明确执行位置、并发和积压上限，以及结果回收与取消方式，再选择 `spawn`、阻塞池、通道或锁。
+- 保留已有架构中合理的选择；只有性能目标或测量证据需要时，才进入该参考的调度诊断、线程隔离等专项优化。
+
 ## 提交与 CI
 
 - 在 Rust 项目中，每次提交前依次执行以下命令，全部零警告后才能提交：
@@ -35,7 +42,7 @@ cargo fmt --all &&
 ## 按需参考
 
 - 调整缓存、CI、警告配置、依赖或分析构建耗时：读取 [Cargo 构建](references/build.md)。
-- 调整异步、序列化、集合、分配或并行热点：读取 [运行时与性能](references/runtime.md)。
+- 调整序列化、集合、分配或并行热点：按需读取 [运行时与性能](references/runtime.md) 的对应部分；Tokio 实现按上面的编码入口选择。
 - 检查复杂 trait、GAT、关联类型的下一代求解器差异：读取 [求解器 canary](references/next-solver.md)。
 - Rust/C/C++ 边界可用 `rust-ffi`，Bevy ECS 可用 `bevy-ecs`；仅在涉及对应领域时加载。
 - 版本产物与发布任务可用 `release-engineering`；技术实现不隐含发布授权。
