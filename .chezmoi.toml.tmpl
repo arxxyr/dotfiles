@@ -16,21 +16,19 @@
 {{- if eq .chezmoi.os "windows" }}
 
 # Windows 没有 shebang 机制：chezmoi 把 modify_ 脚本落成临时文件后直接 CreateProcess，
-# 于是必然报 "%1 is not a valid Win32 application"，三个 modify_ 脚本全部跑不起来
-# （apply 遇错即停，只会看到字典序最靠前的 .claude/settings.json 报错）。
+# 必然报 "%1 is not a valid Win32 application"，只能靠 interpreters 按扩展名分发解释器。
 #
-# interpreters 是官方解法，但它按【扩展名】分发，而 modify_ 临时文件的扩展名跟着
-# 目标文件走——settings.json → json、config.toml → toml，内置表里只有
-# py/rb/pl/nu 等，查不到就退回直接 exec。故显式给这两个扩展名指定 Python。
-# 本仓库这两个扩展名下只有 modify_ 脚本，不会误伤其他脚本；Unix 侧走 shebang
-# 本来就是通的，不设这段，行为保持不变。
+# 为此四个 modify_ 脚本统一带 .py 后缀（modify_settings.json.py.tmpl 等）。chezmoi 对
+# modify_ 会把目标名末尾命中 interpreters 的扩展名当成「脚本扩展名」剥掉（sourcestate.go，
+# 全平台同一逻辑）：剥掉的是 .py，目标名仍是 settings.json / config.toml / .skill-lock.json。
+# 反例：曾直接给 json/toml 配 interpreters，结果剥掉的是 .json/.toml，Windows 上产物全写进
+# .claude/settings、.codex/config 这类无扩展名文件，真正的配置两周没收敛。
 #
-# 优先用 py（Python Launcher，随 python.org 安装进 System32）：它会解析脚本首行的
-# #!/usr/bin/env python3 来挑版本，比写死 python.exe 稳。init 时探测不到就留字面量
-# "py"，交由 apply 时的 PATH 解析。
+# py 本就在 chezmoi 默认 interpreters 表里（全平台），但默认命令是 python3，Windows 上会命中
+# WindowsApps 里的应用商店占位程序，故这里改钉 py（Python Launcher，随 python.org 安装进
+# C:\Windows）：它会按脚本首行 #!/usr/bin/env python3 挑版本。init 时探测不到就留字面量
+# "py"，交由 apply 时的 PATH 解析。Unix 用默认的 python3（与 shebang 找到的是同一个），不设这段。
 {{- $py := or (lookPath "py") (lookPath "python") "py" }}
-[interpreters.json]
-    command = {{ $py | quote }}
-[interpreters.toml]
+[interpreters.py]
     command = {{ $py | quote }}
 {{- end }}

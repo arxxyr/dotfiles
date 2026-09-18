@@ -104,7 +104,7 @@ class SkillSourceTests(unittest.TestCase):
 class SkillLockTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.script = render("dot_agents/modify_dot_skill-lock.json.tmpl")
+        cls.script = render("dot_agents/modify_dot_skill-lock.json.py.tmpl")
 
     def modify(self, content):
         return subprocess.run(
@@ -346,8 +346,8 @@ class MigrationTests(unittest.TestCase):
                         f"../../.agents/skills/{name}\n", encoding="utf-8"
                     )
             shutil.copyfile(
-                REPO / "dot_agents/modify_dot_skill-lock.json.tmpl",
-                source / "dot_agents/modify_dot_skill-lock.json.tmpl",
+                REPO / "dot_agents/modify_dot_skill-lock.json.py.tmpl",
+                source / "dot_agents/modify_dot_skill-lock.json.py.tmpl",
             )
             for name in RETIRED:
                 old = destination / ".agents/skills" / name / "references"
