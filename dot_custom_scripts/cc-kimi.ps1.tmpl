@@ -33,13 +33,13 @@ $env:KIMI_MODEL_THINKING_EFFORT = $Effort
 
 Write-Host "Model:  $Model"
 Write-Host "Effort: $Effort (locked via KIMI_MODEL_THINKING_EFFORT)"
-Write-Host "Mode:   auto (--auto：全自主，工具调用全自动批准且不再反问)"
+Write-Host "Mode:   auto (--auto = Never Ask：全程不打断，工具调用自动批准且不再反问)"
 
-$kimiExe = Get-Command 'kimi' -ErrorAction SilentlyContinue
-if (-not $kimiExe) {
-$default = Join-Path $env:USERPROFILE '.kimi-code\bin\kimi.exe'
-if (Test-Path $default) { $kimiExe = $default }
-else { throw 'kimi not found. 把 %USERPROFILE%\.kimi-code\bin 加进 PATH，或先装 Kimi Code CLI' }
+# 与 bash 版一致：先找官方安装器落点，再退回 PATH，PATH 里同名的旧版 Python kimi-cli 抢不到
+$kimiExe = Join-Path $env:USERPROFILE '.kimi-code\bin\kimi.exe'
+if (-not (Test-Path $kimiExe)) {
+$kimiExe = (Get-Command 'kimi' -ErrorAction SilentlyContinue).Source
+if (-not $kimiExe) { throw 'kimi not found. 先装 Kimi Code：irm https://code.kimi.com/kimi-code/install.ps1 | iex' }
 }
 
 $kimiArgs = @('--auto', '--model', $Model)

@@ -5,28 +5,39 @@ set -euo pipefail
 # Kimi Code CLI 启动器：直连 api.kimi.com，不设代理、不改时区（与 cc-claude 的差异点）。
 # 固定 K3 + max 思考档 + auto 权限模式；CC_KIMI_* 可覆盖。
 #
-# 变量命名注意：不要用 KIMI_MODEL / KIMI_BASE_URL / KIMI_API_KEY —— CLI 见到这组变量会
-# 改走「env 定义模型」分支，凭空造一个 provider，绕开 managed:kimi-code 的 OAuth 登录。
+# 变量命名注意：启动器自己的变量一律用 CC_KIMI_* 前缀，不要起成 KIMI_MODEL_NAME 这类
+# KIMI_MODEL_* —— CLI 见到 KIMI_MODEL_NAME 会改走「env 定义模型」分支，在内存里合成临时
+# provider，绕开 managed:kimi-code 的 OAuth 登录（KIMI_API_KEY / KIMI_BASE_URL 在 2.x 只从
+# config.toml 读，不从 shell 读）。
 #
-# 为什么是 --auto 而不是 --yolo：两个 approve 策略实现完全相同（都是无条件 approve），
-# 差别在策略链顺序（first non-undefined result wins）——AutoModeApprove 排第 6 位，
-# YoloModeApprove 排第 16 位，中间夹着 SensitiveFileAccessAsk（.env/.ssh/*.pem/*.key…）
-# 和 GitControlPathAccessAsk（写 .git/）。所以 yolo 碰敏感文件仍会弹确认，auto 直接绕过。
-# auto 唯一的代价：AskUserQuestion 被硬禁（策略链第 3 位，配置改不动），agent 不能反问。
+# 为什么是 --auto 而不是 --yolo（2.x 官方定义）：--auto = Never Ask，全程不打断，工具调用
+# 自动批准、该做的决定也自行拍板；--yolo = Ask When Needed，常规编辑和命令自动跑，但风险
+# 操作、提问和计划仍会停下来问。cc-kimi 接的是低风险简单任务，要一路跑完不卡，所以取 auto；
+# 代价是 agent 不会反问。两者互斥，同时传 CLI 直接报错。
 # 默认值取自 .chezmoidata.toml 的 [kimi]，与 config.toml 的 modify_ 强制项同源
 MODEL="${CC_KIMI_MODEL:-{{ .kimi.model }}}"
 EFFORT="${CC_KIMI_EFFORT:-{{ .kimi.effort }}}"
 
+# 找 Kimi Code 本体：CC_KIMI_BIN 显式指定 > 官方安装器落点 ~/.kimi-code/bin/kimi > PATH。
+# 不能先查 PATH：profile.sh 把 ~/.kimi-code/bin 追加在 PATH 末尾，已弃用的 Python kimi-cli
+# （uv tool 装在 ~/.local/bin）也叫 kimi，会抢先命中并报 No such option '--auto'。
 resolve_kimi_bin() {
   local bin="${CC_KIMI_BIN:-}"
-  if [[ -z "$bin" ]]; then
-    bin="$(command -v kimi 2>/dev/null || true)"
-  fi
   if [[ -z "$bin" && -x "$HOME/.kimi-code/bin/kimi" ]]; then
     bin="$HOME/.kimi-code/bin/kimi"
   fi
   if [[ -z "$bin" ]]; then
-    echo "kimi not found. 把 ~/.kimi-code/bin 加进 PATH，或先装 Kimi Code CLI" >&2
+    bin="$(command -v kimi 2>/dev/null || true)"
+  fi
+  if [[ -z "$bin" ]]; then
+    echo "kimi not found. 先装 Kimi Code（PATH 由 profile.sh 管，禁止安装器改 rc）：" >&2
+    echo "  curl -fsSL https://code.kimi.com/kimi-code/install.sh | KIMI_NO_MODIFY_PATH=1 bash" >&2
+    return 1
+  fi
+  # 照官方安装器的办法认旧版：解析软链后嗅文件头 4 KiB 里的 kimi_cli 标记
+  if grep -aq kimi_cli < <(head -c 4096 "$(readlink -f "$bin")" 2>/dev/null); then
+    echo "$bin 是已弃用的 Python kimi-cli（不支持 --auto）：改装 Kimi Code 后执行" >&2
+    echo "  uv tool uninstall kimi-cli；或用 CC_KIMI_BIN 指定 Kimi Code 本体" >&2
     return 1
   fi
   printf '%s\n' "$bin"
@@ -52,8 +63,8 @@ start_kimi() {
   local bin arg prompt_mode=0
   local -a flags
 
-  # 非交互的 -p/--prompt 与 --auto 互斥（CLI 会直接报 OptionConflictError），
-  # 而 print 模式本身就走 withPrintModeDefaults 的放行默认值，去掉 --auto 不丢权限
+  # 非交互的 -p/--prompt 与 --auto 互斥（2.x 报 OptionConflictError: Cannot combine --prompt
+  # with --auto），而 -p 本身就按 auto 权限策略放行（静态 deny 规则仍生效），去掉 --auto 不丢权限
   for arg in "$@"; do
     case "$arg" in
     -p | --prompt | --prompt=*)
@@ -69,17 +80,18 @@ start_kimi() {
     flags=(--auto "${flags[@]}")
   fi
 
-  # 思考档锁定：CLI 内部按 forcedEffort 处理，优先级高于 config.toml 的
-  # thinking.effort 与模型 default_effort（K3 出厂 high），且不写回 config.toml——
-  # 既扛得住 0.38 那次 max→high 的迁移，也不污染 chezmoi 纳管的配置文件。
+  # 思考档锁定：CLI 把 KIMI_MODEL_THINKING_EFFORT 绑定为 thinking.forcedEffort（2.0.1 实测），
+  # 线上强制该档、绕过模型声明的 support_efforts，优先级高于 config.toml 的 thinking.effort
+  # 与模型 default_effort，且不写回 config.toml——CLI 升级迁移或 managed 目录刷新改写档位都
+  # 压不过它，也不污染 chezmoi 纳管的配置文件。
   export KIMI_MODEL_THINKING_EFFORT="$EFFORT"
 
   echo "Model:  $MODEL"
   echo "Effort: $EFFORT (locked via KIMI_MODEL_THINKING_EFFORT)"
   if ((prompt_mode == 0)); then
-    echo "Mode:   auto (--auto：全自主，工具调用全自动批准且不再反问)"
+    echo "Mode:   auto (--auto = Never Ask：全程不打断，工具调用自动批准且不再反问)"
   else
-    echo "Mode:   print (-p 与 --auto 互斥，已省略；print 模式自带放行默认值)"
+    echo "Mode:   print (-p 与 --auto 互斥，已省略；-p 自带 auto 权限策略)"
   fi
   exec "$bin" "${flags[@]}" "$@"
 }
