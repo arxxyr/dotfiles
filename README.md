@@ -180,6 +180,11 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | neofetch | `~/.config/neofetch/` | Neofetch + 自定义 ASCII art |
 | pip | `~/.config/pip/pip.conf`（POSIX）、`%APPDATA%\pip\pip.ini`（Windows） | pip USTC 镜像，双平台同配 |
 
+`modify_` 脚本（`settings.json`、两份 `config.toml`、`.skill-lock.json`）一律命名为 `modify_<目标名>.py.tmpl`：
+Windows 没有 shebang，靠 interpreters 按扩展名挑解释器，而 chezmoi 会把命中的扩展名从目标名里剥掉，
+带 `.py` 剥掉的才是 `.py`，目标名保持原样；Windows 的 `py` 在 `.chezmoi.toml.tmpl` 里钉成 Python Launcher。
+回归测试（含 Codex 多行数组整体替换）：`uv run --no-project tests/test_modify_scripts.py`。
+
 ## 自定义脚本
 
 全部位于 `~/.custom_scripts/`，跨平台（Linux / macOS / Windows）。

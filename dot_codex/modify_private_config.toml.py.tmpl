@@ -51,13 +51,49 @@ def split_blocks(text):
     return blocks
 
 
+def bracket_depth(text):
+    """一行里净开出的 [ / { 层数；引号内的字符与行尾 # 注释不计（基本串支持 \\ 转义）。"""
+    depth = 0
+    quote = None
+    escaped = False
+    for ch in text:
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif ch == "\\" and quote == '"':
+                escaped = True
+            elif ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "#":
+            break
+        elif ch in "[{":
+            depth += 1
+        elif ch in "]}":
+            depth -= 1
+    return depth
+
+
+def value_end(lines, i):
+    """key 行起，这个值到哪一行结束（含）。CLI 会把数组写成多行（Windows 上的 status_line
+    就是），只换 key 那一行会留下续行和收尾的 ]，把 TOML 写坏；这里顺着括号吃到配平为止。"""
+    depth = bracket_depth(lines[i].split("=", 1)[1])
+    end = i
+    while depth > 0 and end + 1 < len(lines):
+        end += 1
+        depth += bracket_depth(lines[end])
+    return end
+
+
 def set_key(lines, key, value, skip_first=False):
-    """替换段内 key 行；不存在则插入。skip_first 用于跳过 [section] 头那一行。"""
+    """把段内 key 的整个值（多行数组连同续行）换成一行；不存在则插入。
+    skip_first 用于跳过 [section] 头那一行。"""
     pat = re.compile(r"^\s*" + re.escape(key) + r"\s*=")
     start = 1 if skip_first else 0
     for i in range(start, len(lines)):
         if pat.match(lines[i]):
-            lines[i] = "%s = %s" % (key, value)
+            lines[i:value_end(lines, i) + 1] = ["%s = %s" % (key, value)]
             return lines
     at = start
     while at < len(lines) and lines[at].lstrip().startswith("#"):

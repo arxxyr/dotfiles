@@ -194,6 +194,12 @@ sudo apt install -y ack antlr3 asciidoc autoconf automake autopoint binutils bis
 | neofetch | `~/.config/neofetch/` | Neofetch + custom ASCII art |
 | pip | `~/.config/pip/pip.conf` (POSIX), `%APPDATA%\pip\pip.ini` (Windows) | pip USTC mirror, both platforms |
 
+`modify_` scripts (`settings.json`, both `config.toml` files, `.skill-lock.json`) are always named
+`modify_<target>.py.tmpl`: Windows has no shebangs, so interpreters are picked by extension, and chezmoi strips
+the matched extension from the target name. With `.py` last, only `.py` is stripped and the target keeps its name;
+`.chezmoi.toml.tmpl` pins `py` to the Python Launcher on Windows. Regression tests (including whole-value
+replacement of Codex multi-line arrays): `uv run --no-project tests/test_modify_scripts.py`.
+
 ## Custom Scripts
 
 All in `~/.custom_scripts/`, cross-platform (Linux / macOS / Windows).
