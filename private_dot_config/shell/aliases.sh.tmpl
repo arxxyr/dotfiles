@@ -9,11 +9,12 @@ alias vim='nvim'
 alias cc-proxy='source cc-proxy'
 
 # eza（覆盖 shell 默认的 ls 别名，不可用时回退到各 shell 自己的定义）
+# --icons 一律写成 --icons=auto：它带可选值，裸写在末尾时 `ls <路径>` 会把路径吞成它的值而报错
 if command -v eza >/dev/null 2>&1; then
-    alias ls='eza --icons'
-    alias ll='eza -l --icons --git'
-    alias la='eza -la --icons --git'
-    alias lt='eza --tree --icons --level=2'
+    alias ls='eza --icons=auto'
+    alias ll='eza -l --icons=auto --git'
+    alias la='eza -la --icons=auto --git'
+    alias lt='eza --tree --icons=auto --level=2'
 fi
 
 # ripgrep（文件内容搜索用 rg，管道过滤继续用 grep）
